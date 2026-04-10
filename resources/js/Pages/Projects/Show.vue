@@ -13,6 +13,9 @@ const backlogTasks = computed(() =>
 const inProgressTasks = computed(() =>
     props.project.tasks.filter(t => t.status === 'in_progress')
 )
+const ReviewTasks = computed(() =>
+    props.project.tasks.filter(t => t.status === 'review')
+)
 const doneTasks = computed(() =>
     props.project.tasks.filter(t => t.status === 'done')
 )
@@ -72,7 +75,18 @@ const updateStatus = (taskId, newStatus) => {
 
             <div v-for="task in inProgressTasks" :key="task.id" class="task">
                 {{ task.title }}
+                <button @click="updateStatus(task.id, 'review')">На проверку</button>
+            </div>
+
+        </div>
+
+        <div class="column">
+            <h2>Review</h2>
+
+            <div v-for="task in ReviewTasks" :key="task.id" class="task">
+                {{ task.title }}
                 <button @click="updateStatus(task.id, 'done')">✅ Готово</button>
+                <button @click="updateStatus(task.id, 'in_progress')">          ↩ Вернуть в работу</button>
             </div>
 
         </div>
@@ -89,6 +103,7 @@ const updateStatus = (taskId, newStatus) => {
         </div>
 
     </div>
+
 </template>
 
 <style scoped>

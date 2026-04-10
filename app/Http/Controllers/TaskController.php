@@ -44,7 +44,7 @@ class TaskController extends Controller
             })->firstOrFail();
 
         $validated = $request->validate([
-            'status' => 'required|in:backlog,in_progress,done'
+            'status' => 'required|in:backlog,in_progress,review,done'
         ]);
 
         $task->update([
