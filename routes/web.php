@@ -38,6 +38,10 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::post('/tasks/reorder', [TaskController::class, 'reorder'])->name('tasks.reorder');
+});
+
+Route::middleware('auth')->group(function () {
     Route::resource('/projects', ProjectController::class)
         ->only(['index', 'store', 'show', 'destroy']);
 });
@@ -53,5 +57,7 @@ Route::patch('/tasks/{id}', [TaskController::class, 'update'])
 Route::delete('/tasks/{id}', [TaskController::class, 'destroy'])
     ->name('tasks.destroy')
     ->middleware('auth');
+
+
 
 require __DIR__.'/auth.php';

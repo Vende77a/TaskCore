@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import { router } from '@inertiajs/vue3'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import draggable from 'vuedraggable'
 
 const editingTaskId = ref(null)
@@ -12,18 +12,34 @@ const props = defineProps({
     project: Object
 })
 
-const backlogTasks = computed(() =>
-    props.project.tasks.filter(t => t.status === 'backlog')
-)
-const inProgressTasks = computed(() =>
-    props.project.tasks.filter(t => t.status === 'in_progress')
-)
-const ReviewTasks = computed(() =>
-    props.project.tasks.filter(t => t.status === 'review')
-)
-const doneTasks = computed(() =>
-    props.project.tasks.filter(t => t.status === 'done')
-)
+const localTasks = ref([...props.project.tasks])
+
+watch(() => props.project.tasks, (newTasks) => {
+    localTasks.value = [...newTasks]
+}, { deep: true })
+
+const backlogTasks = computed({
+    get: () => localTasks.value.filter(t => t.status === 'backlog'),
+    set: (val) => updateLocalOrder(val, 'backlog')
+})
+const inProgressTasks = computed({
+    get: () => localTasks.value.filter(t => t.status === 'in_progress'),
+    set: (val) => updateLocalOrder(val, 'in_progress')
+})
+const reviewTasks = computed({
+    get: () => localTasks.value.filter(t => t.status === 'review'),
+    set: (val) => updateLocalOrder(val, 'review')
+})
+const doneTasks = computed({
+    get: () => localTasks.value.filter(t => t.status === 'done'),
+    set: (val) => updateLocalOrder(val, 'done')
+})
+
+const updateLocalOrder = (filteredTasks, status) => {
+
+    const otherTasks = localTasks.value.filter(t => t.status !== status)
+    localTasks.value = [...otherTasks, ...filteredTasks]
+}
 
 const deleteTask = (taskId) => {
     if (confirm('Удалить задачу?')) {
@@ -71,6 +87,21 @@ const onChange = (event, newStatus) => {
         status: newStatus
     })
 }
+
+const onEnd = () => {
+    // Собираем ID прямо из локального реактивного массива,
+    // который vuedraggable уже отсортировал
+    const ids = localTasks.value.map(t => t.id);
+
+    console.log("Отправляем ID:", ids);
+
+    router.post(route('tasks.reorder'), {
+        tasks: ids
+    }, {
+        preserveScroll: true,
+    });
+
+}
 </script>
 
 <template>
@@ -84,14 +115,15 @@ const onChange = (event, newStatus) => {
                 <h2>📌 Backlog <span>{{ backlogTasks.length }}</span></h2>
 
                 <draggable
-                    :list="backlogTasks"
+                    v-model="backlogTasks"
                     group="tasks"
                     item-key="id"
+                    @end="onEnd"
                     @change="(e) => onChange(e, 'backlog')"
                 >
                     <template #item="{ element: task }">
 
-                        <div class="task">
+                        <div class="task" :data-id="task.id">
 
                             <div class="task-top">
                                 <div v-if="editingTaskId === task.id">
@@ -138,9 +170,10 @@ const onChange = (event, newStatus) => {
                 <h2>⚙️ In Progress <span>{{ inProgressTasks.length }}</span></h2>
 
                 <draggable
-                    :list="inProgressTasks"
+                    v-model="inProgressTasks"
                     group="tasks"
                     item-key="id"
+                    @end="onEnd"
                     @change="(e) => onChange(e, 'in_progress')"
                 >
                     <template #item="{ element: task }">
@@ -179,12 +212,13 @@ const onChange = (event, newStatus) => {
 
             <!-- REVIEW -->
             <div class="column">
-                <h2>🔍 Review <span>{{ ReviewTasks.length }}</span></h2>
+                <h2>🔍 Review <span>{{ reviewTasks.length }}</span></h2>
 
                 <draggable
-                    :list="ReviewTasks"
+                    v-model="reviewTasks"
                     group="tasks"
                     item-key="id"
+                    @end="onEnd"
                     @change="(e) => onChange(e, 'review')"
                 >
                     <template #item="{ element: task }">
@@ -228,9 +262,10 @@ const onChange = (event, newStatus) => {
                 <h2>🏁 Done <span>{{ doneTasks.length }}</span></h2>
 
                 <draggable
-                    :list="doneTasks"
+                    v-model="doneTasks"
                     group="tasks"
                     item-key="id"
+                    @end="onEnd"
                     @change="(e) => onChange(e, 'done')"
                 >
                     <template #item="{ element: task }">

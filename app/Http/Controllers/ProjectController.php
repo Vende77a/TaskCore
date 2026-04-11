@@ -34,7 +34,9 @@ class ProjectController extends Controller
     {
         $project = Project::where('id', $id)
             ->where('user_id', auth()->id())
-            ->with('tasks')
+            ->with(['tasks' => function($query) {
+                $query->orderBy('order', 'asc');
+            }])
             ->firstOrFail();
 
         return Inertia::render('Projects/Show', [

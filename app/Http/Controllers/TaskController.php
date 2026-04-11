@@ -67,4 +67,28 @@ class TaskController extends Controller
         $task->delete();
 
         return redirect()->back();
-    }}
+    }
+
+    public function reorder(Request $request)
+    {
+        // Это остановит выполнение и выведет данные в окно браузера/консоль
+        // Если при перетаскивании ты увидишь окно с данными — значит фронт работает.
+        //dd($request->all());
+
+        $data = $request->validate([
+            'tasks' => 'required|array',
+            'tasks.*' => 'numeric', // упростим пока проверку
+        ]);
+
+        foreach ($data['tasks'] as $index => $taskId) {
+            // Используем find, чтобы точно убедиться в обновлении
+            $task = Task::find($taskId);
+            if ($task) {
+                $task->order = $index;
+                $task->save();
+            }
+        }
+
+        return redirect()->back();
+    }
+}
