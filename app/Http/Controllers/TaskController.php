@@ -44,13 +44,27 @@ class TaskController extends Controller
             })->firstOrFail();
 
         $validated = $request->validate([
-            'status' => 'required|in:backlog,in_progress,review,done'
+            'status' => 'nullable|in:backlog,in_progress,review,done',
+            'title' => 'nullable|string|max:255',
         ]);
 
-        $task->update([
-            'status' => $validated['status']
-        ]);
+        $task->update(array_filter([
+            'status' => $validated['status'] ?? null,
+            'title' => $validated['title'] ?? null,
+        ]));
 
         return redirect()->back();
     }
-}
+
+    public function destroy($id)
+    {
+        $task = Task::where('id', $id)
+            ->whereHas('project', function ($query) {
+                $query->where('user_id', auth()->id());
+            })
+            ->firstOrFail();
+
+        $task->delete();
+
+        return redirect()->back();
+    }}

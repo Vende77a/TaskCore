@@ -42,4 +42,15 @@ class ProjectController extends Controller
         ]);
     }
 
+    public function destroy($id)
+    {
+        $project = Project::where('id', $id)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
+
+        $project->delete();
+
+        return redirect()->route('projects.index');
+    }
+
 }

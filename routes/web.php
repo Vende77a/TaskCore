@@ -39,13 +39,19 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::resource('/projects', ProjectController::class)
-        ->only(['index', 'store', 'show']);
+        ->only(['index', 'store', 'show', 'destroy']);
 });
 
 Route::post('/tasks', [TaskController::class, 'store'])
     ->name('tasks.store')
     ->middleware('auth');
 
-Route::patch('/tasks/{id}', [TaskController::class, 'update'])->name('tasks.update')->middleware('auth');
+Route::patch('/tasks/{id}', [TaskController::class, 'update'])
+    ->name('tasks.update')
+    ->middleware('auth');
+
+Route::delete('/tasks/{id}', [TaskController::class, 'destroy'])
+    ->name('tasks.destroy')
+    ->middleware('auth');
 
 require __DIR__.'/auth.php';

@@ -1,5 +1,5 @@
 <script setup>
-import { useForm } from '@inertiajs/vue3'
+import { useForm, router } from '@inertiajs/vue3'
 
 defineProps({
     projects: Array
@@ -15,13 +15,20 @@ const submit = () => {
         onSuccess: () => form.reset()
     })
 }
+
+const deleteProject = (projectId) => {
+    if (confirm('Удалить проект?')) {
+        router.delete(route('projects.destroy', projectId), {
+            preserveScroll: true
+        })
+    }
+}
 </script>
 
 <template>
     <div>
         <h1>Projects</h1>
 
-        <!-- ФОРМА -->
         <form @submit.prevent="submit">
             <div>
                 <input
@@ -53,14 +60,52 @@ const submit = () => {
 
         <hr>
 
-        <!-- СПИСОК -->
         <ul>
-            <li v-for="project in projects" :key="project.id">
-                {{ project.title }}
+            <li
+                v-for="project in projects"
+                :key="project.id"
+                class="project-item"
+            >
+        <span
+            class="project-title"
+            @click="router.get(route('projects.show', project.id))"
+        >
+            {{ project.title }}
+        </span>
+
+                <button
+                    class="delete-btn"
+                    @click="deleteProject(project.id)"
+                >
+                    🗑️
+                </button>
             </li>
         </ul>
     </div>
 </template>
 
 <style>
+.project-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    margin-bottom: 6px;
+    background: #f5f5f5;
+    border-radius: 6px;
+}
+
+.project-title {
+    cursor: pointer;
+}
+
+.project-title:hover {
+    text-decoration: underline;
+}
+
+.delete-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
 </style>
