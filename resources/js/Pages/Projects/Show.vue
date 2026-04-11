@@ -83,33 +83,45 @@ const onChange = (event, newStatus) => {
             <div class="column">
                 <h2>📌 Backlog <span>{{ backlogTasks.length }}</span></h2>
 
-                <div v-for="task in backlogTasks" :key="task.id" class="task">
+                <draggable
+                    :list="backlogTasks"
+                    group="tasks"
+                    item-key="id"
+                    @change="(e) => onChange(e, 'backlog')"
+                >
+                    <template #item="{ element: task }">
 
-                    <div class="task-top">
-                        <div v-if="editingTaskId === task.id">
-                            <input
-                                class="edit-input"
-                                v-model="editingTitle"
-                                @keyup.enter="saveEdit(task.id)"
-                                @blur="saveEdit(task.id)"
-                                autofocus
-                            />
+                        <div class="task">
+
+                            <div class="task-top">
+                                <div v-if="editingTaskId === task.id">
+                                    <input
+                                        class="edit-input"
+                                        v-model="editingTitle"
+                                        @keyup.enter="saveEdit(task.id)"
+                                        @blur="saveEdit(task.id)"
+                                        autofocus
+                                    />
+                                </div>
+
+                                <div v-else class="task-title">
+                                    {{ task.title }}
+                                </div>
+
+                                <button class="icon-btn" @click="startEdit(task)">✏️</button>
+                            </div>
+
+                            <div class="task-actions">
+                                <button @click="updateStatus(task.id, 'in_progress')">
+                                    ➡️ Start
+                                </button>
+                                <button @click="deleteTask(task.id)">🗑️</button>
+                            </div>
+
                         </div>
 
-                        <div v-else class="task-title">
-                            {{ task.title }}
-                        </div>
-
-                        <button class="icon-btn" @click="startEdit(task)">✏️</button>
-                    </div>
-
-                    <div class="task-actions">
-                        <button @click="updateStatus(task.id, 'in_progress')">
-                            ➡️ Start
-                        </button>
-                        <button @click="deleteTask(task.id)">🗑️</button>
-                    </div>
-                </div>
+                    </template>
+                </draggable>
 
                 <form @submit.prevent="submit" class="task-form">
                     <input
@@ -125,96 +137,128 @@ const onChange = (event, newStatus) => {
             <div class="column">
                 <h2>⚙️ In Progress <span>{{ inProgressTasks.length }}</span></h2>
 
-                <div v-for="task in inProgressTasks" :key="task.id" class="task">
+                <draggable
+                    :list="inProgressTasks"
+                    group="tasks"
+                    item-key="id"
+                    @change="(e) => onChange(e, 'in_progress')"
+                >
+                    <template #item="{ element: task }">
 
-                    <div class="task-top">
-                        <div v-if="editingTaskId === task.id">
-                            <input
-                                class="edit-input"
-                                v-model="editingTitle"
-                                @keyup.enter="saveEdit(task.id)"
-                                @blur="saveEdit(task.id)"
-                            />
+                        <div class = "task">
+                            <div class="task-top">
+                                <div v-if="editingTaskId === task.id">
+                                    <input
+                                        class="edit-input"
+                                        v-model="editingTitle"
+                                        @keyup.enter="saveEdit(task.id)"
+                                        @blur="saveEdit(task.id)"
+                                    />
+                                </div>
+
+                                <div v-else class="task-title">
+                                    {{ task.title }}
+                                </div>
+
+                                <button class="icon-btn" @click="startEdit(task)">✏️</button>
+                            </div>
+
+
+                            <div class="task-actions">
+                                <button @click="updateStatus(task.id, 'review')">
+                                    Review
+                                </button>
+                                <button @click="deleteTask(task.id)">🗑️</button>
+                            </div>
+
                         </div>
 
-                        <div v-else class="task-title">
-                            {{ task.title }}
-                        </div>
-
-                        <button class="icon-btn" @click="startEdit(task)">✏️</button>
-                    </div>
-
-                    <div class="task-actions">
-                        <button @click="updateStatus(task.id, 'review')">
-                            Review
-                        </button>
-                        <button @click="deleteTask(task.id)">🗑️</button>
-                    </div>
-                </div>
+                    </template>
+                </draggable>
             </div>
 
             <!-- REVIEW -->
             <div class="column">
                 <h2>🔍 Review <span>{{ ReviewTasks.length }}</span></h2>
 
-                <div v-for="task in ReviewTasks" :key="task.id" class="task">
+                <draggable
+                    :list="ReviewTasks"
+                    group="tasks"
+                    item-key="id"
+                    @change="(e) => onChange(e, 'review')"
+                >
+                    <template #item="{ element: task }">
 
-                    <div class="task-top">
-                        <div v-if="editingTaskId === task.id">
-                            <input
-                                class="edit-input"
-                                v-model="editingTitle"
-                                @keyup.enter="saveEdit(task.id)"
-                                @blur="saveEdit(task.id)"
-                            />
+                        <div class="task">
+
+                            <div class="task-top">
+                                <div v-if="editingTaskId === task.id">
+                                    <input
+                                        class="edit-input"
+                                        v-model="editingTitle"
+                                        @keyup.enter="saveEdit(task.id)"
+                                        @blur="saveEdit(task.id)"
+                                    />
+                                </div>
+
+                                <div v-else class="task-title">
+                                    {{ task.title }}
+                                </div>
+
+                                <button class="icon-btn" @click="startEdit(task)">✏️</button>
+                            </div>
+
+                            <div class="task-actions">
+                                <button @click="updateStatus(task.id, 'done')">
+                                    ✅ Done
+                                </button>
+                                <button @click="updateStatus(task.id, 'in_progress')">
+                                    ↩ Back
+                                </button>
+                                <button @click="deleteTask(task.id)">🗑️</button>
+                            </div>
                         </div>
+                    </template>
+                </draggable>
 
-                        <div v-else class="task-title">
-                            {{ task.title }}
-                        </div>
-
-                        <button class="icon-btn" @click="startEdit(task)">✏️</button>
-                    </div>
-
-                    <div class="task-actions">
-                        <button @click="updateStatus(task.id, 'done')">
-                            ✅ Done
-                        </button>
-                        <button @click="updateStatus(task.id, 'in_progress')">
-                            ↩ Back
-                        </button>
-                        <button @click="deleteTask(task.id)">🗑️</button>
-                    </div>
-                </div>
             </div>
 
             <!-- DONE -->
             <div class="column">
                 <h2>🏁 Done <span>{{ doneTasks.length }}</span></h2>
 
-                <div v-for="task in doneTasks" :key="task.id" class="task">
+                <draggable
+                    :list="doneTasks"
+                    group="tasks"
+                    item-key="id"
+                    @change="(e) => onChange(e, 'done')"
+                >
+                    <template #item="{ element: task }">
+                        <div class = "task">
 
-                    <div class="task-top">
-                        <div v-if="editingTaskId === task.id">
-                            <input
-                                class="edit-input"
-                                v-model="editingTitle"
-                                @keyup.enter="saveEdit(task.id)"
-                                @blur="saveEdit(task.id)"
-                            />
+                            <div class="task-top">
+                                <div v-if="editingTaskId === task.id">
+                                    <input
+                                        class="edit-input"
+                                        v-model="editingTitle"
+                                        @keyup.enter="saveEdit(task.id)"
+                                        @blur="saveEdit(task.id)"
+                                    />
+                                </div>
+
+                                <div v-else class="task-title done">
+                                    {{ task.title }}
+                                </div>
+
+                                <button class="icon-btn" @click="startEdit(task)">✏️</button>
+                            </div>
+
+                            <div class="task-actions">
+                                <button @click="deleteTask(task.id)">🗑️</button>
+                            </div>
                         </div>
-
-                        <div v-else class="task-title done">
-                            {{ task.title }}
-                        </div>
-
-                        <button class="icon-btn" @click="startEdit(task)">✏️</button>
-                    </div>
-
-                    <div class="task-actions">
-                        <button @click="deleteTask(task.id)">🗑️</button>
-                    </div>
-                </div>
+                    </template>
+                </draggable>
             </div>
 
         </div>
