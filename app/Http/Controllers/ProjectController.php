@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -11,8 +12,12 @@ class ProjectController extends Controller
 {
 
     public function index() {
+
         $projects =auth()->user()->projects;
-        return Inertia::render('Projects/Index', ['projects' => $projects]);
+
+        return Inertia::render('Projects/Index', [
+            'projects' => $projects
+        ]);
     }
 
     public function store(Request $request){
@@ -35,12 +40,15 @@ class ProjectController extends Controller
         $project = Project::where('id', $id)
             ->where('user_id', auth()->id())
             ->with(['tasks' => function($query) {
-                $query->orderBy('order', 'asc');
+                $query->with('user')->orderBy('order', 'asc');
             }])
             ->firstOrFail();
 
         return Inertia::render('Projects/Show', [
-            'project' => $project
+            'project' => $project,
+            'users' => User::select('id', 'name', 'email')
+                ->orderBy('name')
+                ->get(),
         ]);
     }
 

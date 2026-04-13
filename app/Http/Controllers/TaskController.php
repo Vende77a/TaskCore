@@ -9,18 +9,13 @@ use Illuminate\Support\Facades\DB;
 
 class TaskController extends Controller
 {
-    public function index()
-    {
-
-    }
-
     public function store(Request $request)
     {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
             'project_id' => 'required|exists:projects,id',
-            'priority' => 'required|integer',
+            'priority' => 'required|integer|min:1|max:3',
         ]);
 
         $project = Project::where('id', $validated['project_id'])
@@ -43,17 +38,45 @@ class TaskController extends Controller
         $task = Task::where('id', $id)
             ->whereHas('project', function ($query) {
                 $query->where('user_id', auth()->id());
-            })->firstOrFail();
+            })
+            ->firstOrFail();
 
         $validated = $request->validate([
-            'status' => 'nullable|in:backlog,in_progress,review,done',
-            'title' => 'nullable|string|max:255',
+            'title' => 'sometimes|required|string|max:255',
+            'description' => 'sometimes|nullable|string',
+            'status' => 'sometimes|required|in:backlog,in_progress,review,done',
+            'priority' => 'sometimes|required|integer|min:1|max:3',
+            'due_date' => 'sometimes|nullable|date',
+            'user_id' => 'sometimes|nullable|exists:users,id',
         ]);
 
-        $task->update(array_filter([
-            'status' => $validated['status'] ?? null,
-            'title' => $validated['title'] ?? null,
-        ]));
+        $data = [];
+
+        if ($request->exists('title')) {
+            $data['title'] = $validated['title'];
+        }
+
+        if ($request->exists('description')) {
+            $data['description'] = $validated['description'] ?? null;
+        }
+
+        if ($request->exists('status')) {
+            $data['status'] = $validated['status'];
+        }
+
+        if ($request->exists('priority')) {
+            $data['priority'] = $validated['priority'];
+        }
+
+        if ($request->exists('due_date')) {
+            $data['due_date'] = $validated['due_date'] ?? null;
+        }
+
+        if ($request->exists('user_id')) {
+            $data['user_id'] = $validated['user_id'] ?: null;
+        }
+
+        $task->update($data);
 
         return redirect()->back();
     }
@@ -73,14 +96,23 @@ class TaskController extends Controller
 
     public function reorder(Request $request)
     {
-        $tasks = $request->input('tasks');
+        $validated = $request->validate([
+            'tasks' => 'required|array',
+            'tasks.*.id' => 'required|integer|exists:tasks,id',
+            'tasks.*.order' => 'required|integer|min:0',
+            'tasks.*.status' => 'required|in:backlog,in_progress,review,done',
+        ]);
 
-        DB::transaction(function () use ($tasks) {
-            foreach ($tasks as $task) {
-                Task::where('id', $task['id'])->update([
-                    'order' => $task['order'],
-                    'status' => $task['status'],
-                ]);
+        DB::transaction(function () use ($validated) {
+            foreach ($validated['tasks'] as $taskData) {
+                Task::where('id', $taskData['id'])
+                    ->whereHas('project', function ($query) {
+                        $query->where('user_id', auth()->id());
+                    })
+                    ->update([
+                        'order' => $taskData['order'],
+                        'status' => $taskData['status'],
+                    ]);
             }
         });
 
