@@ -1,45 +1,37 @@
 <script setup>
-import { computed } from 'vue'
-import { useForm } from '@inertiajs/vue3'
-import { router } from '@inertiajs/vue3'
+import { useForm, router, Link } from '@inertiajs/vue3'
 import { ref, watch } from 'vue'
 import draggable from 'vuedraggable'
-
-const editingTaskId = ref(null)
-const editingTitle = ref('')
 
 const props = defineProps({
     project: Object
 })
 
-const localTasks = ref([...props.project.tasks])
+const editingTaskId = ref(null)
+const editingTitle = ref('')
 
-watch(() => props.project.tasks, (newTasks) => {
-    localTasks.value = [...newTasks]
-}, { deep: true })
-
-const backlogTasks = computed({
-    get: () => localTasks.value.filter(t => t.status === 'backlog'),
-    set: (val) => updateLocalOrder(val, 'backlog')
-})
-const inProgressTasks = computed({
-    get: () => localTasks.value.filter(t => t.status === 'in_progress'),
-    set: (val) => updateLocalOrder(val, 'in_progress')
-})
-const reviewTasks = computed({
-    get: () => localTasks.value.filter(t => t.status === 'review'),
-    set: (val) => updateLocalOrder(val, 'review')
-})
-const doneTasks = computed({
-    get: () => localTasks.value.filter(t => t.status === 'done'),
-    set: (val) => updateLocalOrder(val, 'done')
+// 1. Создаем локальные изменяемые массивы, чтобы vuedraggable мог перекидывать между ними задачи
+const columns = ref({
+    backlog: [],
+    in_progress: [],
+    review: [],
+    done: []
 })
 
-const updateLocalOrder = (filteredTasks, status) => {
-
-    const otherTasks = localTasks.value.filter(t => t.status !== status)
-    localTasks.value = [...otherTasks, ...filteredTasks]
+// 2. Функция для распределения задач с учетом их сортировки
+const syncColumns = () => {
+    const tasks = props.project.tasks;
+    columns.value.backlog = tasks.filter(t => t.status === 'backlog').sort((a, b) => a.order - b.order)
+    columns.value.in_progress = tasks.filter(t => t.status === 'in_progress').sort((a, b) => a.order - b.order)
+    columns.value.review = tasks.filter(t => t.status === 'review').sort((a, b) => a.order - b.order)
+    columns.value.done = tasks.filter(t => t.status === 'done').sort((a, b) => a.order - b.order)
 }
+
+// Заполняем колонки при первой загрузке
+syncColumns()
+
+// Обновляем колонки, если данные пришли с сервера
+watch(() => props.project.tasks, syncColumns, { deep: true })
 
 const deleteTask = (taskId) => {
     if (confirm('Удалить задачу?')) {
@@ -74,37 +66,37 @@ const saveEdit = (taskId) => {
     router.patch(route('tasks.update', taskId), {
         title: editingTitle.value
     })
-
     editingTaskId.value = null
 }
 
-const onChange = (event, newStatus) => {
-    const movedItem = event.added?.element
-
-    if (!movedItem) return
-
-    router.patch(route('tasks.update', movedItem.id), {
-        status: newStatus
-    })
-}
-
 const onEnd = () => {
-    // Собираем ID прямо из локального реактивного массива,
-    // который vuedraggable уже отсортировал
-    const ids = localTasks.value.map(t => t.id);
+    const payload = []
 
-    console.log("Отправляем ID:", ids);
+    Object.entries(columns.value).forEach(([status, tasks]) => {
+        tasks.forEach((task, index) => {
+            payload.push({
+                id: task.id,
+                order: index,
+                status: status
+            })
+        })
+    })
 
     router.post(route('tasks.reorder'), {
-        tasks: ids
+        tasks: payload
     }, {
+        preserveState: true,
         preserveScroll: true,
-    });
-
+    })
 }
 </script>
 
 <template>
+
+    <Link :href="route('projects.index')" class="back-btn">
+        ← Back to projects
+    </Link>
+
     <div class="page">
         <h1 class="title">{{ project.title }}</h1>
 
@@ -112,18 +104,18 @@ const onEnd = () => {
 
             <!-- BACKLOG -->
             <div class="column">
-                <h2>📌 Backlog <span>{{ backlogTasks.length }}</span></h2>
+                <h2>📌 Backlog <span>{{ columns.backlog.length }}</span></h2>
 
                 <draggable
-                    v-model="backlogTasks"
+                    v-model="columns.backlog"
                     group="tasks"
                     item-key="id"
                     @end="onEnd"
-                    @change="(e) => onChange(e, 'backlog')"
+                    class="drop-zone"
                 >
                     <template #item="{ element: task }">
 
-                        <div class="task" :data-id="task.id">
+                        <div class="task">
 
                             <div class="task-top">
                                 <div v-if="editingTaskId === task.id">
@@ -153,6 +145,13 @@ const onEnd = () => {
                         </div>
 
                     </template>
+
+                    <template #footer>
+                        <div v-if="columns.backlog.length === 0" class="empty-state">
+                            No tasks here
+                        </div>
+                    </template>
+
                 </draggable>
 
                 <form @submit.prevent="submit" class="task-form">
@@ -161,22 +160,27 @@ const onEnd = () => {
                         type="text"
                         placeholder="New task..."
                     />
-                    <button type="submit">+</button>
+                    <button type="submit" :disabled="!form.title.trim()">
+                        +
+                    </button>
                 </form>
+
             </div>
 
             <!-- IN PROGRESS -->
             <div class="column">
-                <h2>⚙️ In Progress <span>{{ inProgressTasks.length }}</span></h2>
+                <h2>⚙️ In Progress <span>{{ columns.in_progress.length }}</span></h2>
 
                 <draggable
-                    v-model="inProgressTasks"
+                    v-model="columns.in_progress"
                     group="tasks"
                     item-key="id"
                     @end="onEnd"
-                    @change="(e) => onChange(e, 'in_progress')"
+                    class="drop-zone"
                 >
                     <template #item="{ element: task }">
+
+
 
                         <div class = "task">
                             <div class="task-top">
@@ -207,21 +211,30 @@ const onEnd = () => {
                         </div>
 
                     </template>
+
+                    <template #footer>
+                        <div v-if="columns.in_progress.length === 0" class="empty-state">
+                            No tasks here
+                        </div>
+                    </template>
+
                 </draggable>
             </div>
 
             <!-- REVIEW -->
             <div class="column">
-                <h2>🔍 Review <span>{{ reviewTasks.length }}</span></h2>
+                <h2>🔍 Review <span>{{ columns.review.length }}</span></h2>
 
                 <draggable
-                    v-model="reviewTasks"
+                    v-model="columns.review"
                     group="tasks"
                     item-key="id"
                     @end="onEnd"
-                    @change="(e) => onChange(e, 'review')"
+                    class="drop-zone"
                 >
                     <template #item="{ element: task }">
+
+
 
                         <div class="task">
 
@@ -253,22 +266,32 @@ const onEnd = () => {
                             </div>
                         </div>
                     </template>
+
+                    <template #footer>
+                        <div v-if="columns.review.length === 0" class="empty-state">
+                            No tasks here
+                        </div>
+                    </template>
+
                 </draggable>
 
             </div>
 
             <!-- DONE -->
             <div class="column">
-                <h2>🏁 Done <span>{{ doneTasks.length }}</span></h2>
+                <h2>🏁 Done <span>{{ columns.done.length }}</span></h2>
 
                 <draggable
-                    v-model="doneTasks"
+                    v-model="columns.done"
                     group="tasks"
                     item-key="id"
                     @end="onEnd"
-                    @change="(e) => onChange(e, 'done')"
+                    class="drop-zone"
                 >
                     <template #item="{ element: task }">
+
+
+
                         <div class = "task">
 
                             <div class="task-top">
@@ -293,6 +316,13 @@ const onEnd = () => {
                             </div>
                         </div>
                     </template>
+
+                    <template #footer>
+                        <div v-if="columns.done.length === 0" class="empty-state">
+                            No tasks here
+                        </div>
+                    </template>
+
                 </draggable>
             </div>
 
@@ -396,5 +426,39 @@ button:hover {
 .task-form input {
     flex: 1;
     padding: 6px;
+}
+
+.back-btn {
+    display: inline-block;
+    margin: 20px 0 0 20px;
+    font-size: 14px;
+    color: #6b7280;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+.back-btn:hover {
+    color: #111827;
+}
+
+.drop-zone {
+    min-height: 50px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.empty-state {
+    padding: 15px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13px;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    background: transparent;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #e5e7eb;
 }
 </style>
