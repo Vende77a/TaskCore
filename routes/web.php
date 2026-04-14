@@ -6,6 +6,8 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskController;
+use App\Http\Controllers\TaskCommentController;
+use App\Http\Controllers\TaskAttachmentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -58,6 +60,19 @@ Route::delete('/tasks/{id}', [TaskController::class, 'destroy'])
     ->name('tasks.destroy')
     ->middleware('auth');
 
+Route::middleware('auth')->group(function () {
+    Route::post('/tasks/{task}/comments', [TaskCommentController::class, 'store'])
+        ->name('tasks.comments.store');
+
+    Route::delete('/comments/{id}', [TaskCommentController::class, 'destroy'])
+        ->name('comments.destroy');
+
+    Route::post('/tasks/{task}/attachments', [TaskAttachmentController::class, 'store'])
+        ->name('tasks.attachments.store');
+
+    Route::delete('/attachments/{id}', [TaskAttachmentController::class, 'destroy'])
+        ->name('attachments.destroy');
+});
 
 
 require __DIR__.'/auth.php';

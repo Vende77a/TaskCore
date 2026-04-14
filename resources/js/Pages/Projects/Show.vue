@@ -157,6 +157,66 @@ const saveTaskDetails = () => {
         preserveScroll: true,
     })
 }
+
+const commentForm = useForm({
+    body: '',
+})
+
+const attachmentForm = useForm({
+    file: null,
+})
+
+const submitComment = () => {
+    if (!selectedTask.value) return
+
+    commentForm.post(route('tasks.comments.store', selectedTask.value.id), {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => commentForm.reset(),
+    })
+}
+
+const onFileChange = (event) => {
+    attachmentForm.file = event.target.files[0]
+}
+
+const submitAttachment = () => {
+    if (!selectedTask.value || !attachmentForm.file) return
+
+    attachmentForm.post(route('tasks.attachments.store', selectedTask.value.id), {
+        preserveScroll: true,
+        preserveState: true,
+        forceFormData: true,
+        onSuccess: () => {
+            attachmentForm.reset()
+        },
+    })
+}
+
+const deleteComment = (commentId) => {
+    if (confirm('Удалить комментарий?')) {
+        router.delete(route('comments.destroy', commentId), {
+            preserveScroll: true,
+            preserveState: true,
+        })
+    }
+}
+
+const deleteAttachment = (attachmentId) => {
+    if (confirm('Удалить файл?')) {
+        router.delete(route('attachments.destroy', attachmentId), {
+            preserveScroll: true,
+            preserveState: true,
+        })
+    }
+}
+
+const formatFileSize = (bytes) => {
+    if (!bytes) return '0 Б'
+    if (bytes < 1024) return `${bytes} Б`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
+}
 </script>
 
 <template>
@@ -363,7 +423,6 @@ const saveTaskDetails = () => {
                             </div>
 
                             <div class="task-actions">
-                                <!-- твои кнопки оставляй, но обязательно .stop -->
                                 <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
                                 <button @click.stop="deleteTask(task.id)">🗑</button>
                             </div>
@@ -457,15 +516,99 @@ const saveTaskDetails = () => {
 
                 <div class="drawer-section">
                     <h3>Комментарии</h3>
-                    <div class="drawer-placeholder">
-                        Пока таблицы комментариев нет. Ниже показал, как её добавить.
+
+                    <form class="comment-form" @submit.prevent="submitComment">
+                        <textarea
+                            v-model="commentForm.body"
+                            rows="3"
+                            placeholder="Напиши комментарий..."
+                        ></textarea>
+
+                        <small v-if="commentForm.errors.body" class="field-error">
+                            {{ commentForm.errors.body }}
+                        </small>
+
+                        <button type="submit" :disabled="commentForm.processing">
+                            Добавить комментарий
+                        </button>
+                    </form>
+
+                    <div
+                        v-if="selectedTask.comments && selectedTask.comments.length"
+                        class="comments-list"
+                    >
+                        <div
+                            v-for="comment in selectedTask.comments"
+                            :key="comment.id"
+                            class="comment-item"
+                        >
+                            <div class="comment-head">
+                                <strong>{{ comment.user?.name ?? 'Пользователь' }}</strong>
+                                <span>{{ formatDateTime(comment.created_at) }}</span>
+                            </div>
+
+                            <div class="comment-body">
+                                {{ comment.body }}
+                            </div>
+
+                            <button
+                                class="comment-delete"
+                                @click="deleteComment(comment.id)"
+                            >
+                                Удалить
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-else class="drawer-placeholder">
+                        Пока комментариев нет.
                     </div>
                 </div>
 
                 <div class="drawer-section">
                     <h3>Прикреплённые файлы</h3>
-                    <div class="drawer-placeholder">
-                        Пока таблицы файлов и storage-логики нет. Ниже показал, как добавить.
+
+                    <form class="attachment-form" @submit.prevent="submitAttachment">
+                        <input type="file" @change="onFileChange" />
+
+                        <small v-if="attachmentForm.errors.file" class="field-error">
+                            {{ attachmentForm.errors.file }}
+                        </small>
+
+                        <button type="submit" :disabled="attachmentForm.processing">
+                            Загрузить файл
+                        </button>
+                    </form>
+
+                    <div
+                        v-if="selectedTask.attachments && selectedTask.attachments.length"
+                        class="attachments-list"
+                    >
+                        <div
+                            v-for="attachment in selectedTask.attachments"
+                            :key="attachment.id"
+                            class="attachment-item"
+                        >
+                            <div class="attachment-main">
+                                <a :href="attachment.url" target="_blank">
+                                    {{ attachment.original_name }}
+                                </a>
+
+                                <div class="attachment-meta">
+                                    <span>{{ formatFileSize(attachment.size) }}</span>
+                                    <span v-if="attachment.user">• {{ attachment.user.name }}</span>
+                                    <span>• {{ formatDateTime(attachment.created_at) }}</span>
+                                </div>
+                            </div>
+
+                            <button @click="deleteAttachment(attachment.id)">
+                                Удалить
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-else class="drawer-placeholder">
+                        Пока файлов нет.
                     </div>
                 </div>
 
@@ -563,16 +706,6 @@ button {
 
 button:hover {
     background: #dce1e6;
-}
-
-.icon-btn {
-    background: transparent;
-    font-size: 14px;
-}
-
-.edit-input {
-    width: 100%;
-    padding: 4px;
 }
 
 .task-form {
@@ -788,5 +921,71 @@ button:disabled {
     .task-drawer {
         width: 100%;
     }
+}
+
+.comment-form,
+.attachment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.comments-list,
+.attachments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.comment-item,
+.attachment-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px;
+    background: #fff;
+}
+
+.comment-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 8px;
+}
+
+.comment-body {
+    white-space: pre-wrap;
+    color: #111827;
+    font-size: 14px;
+}
+
+.comment-delete {
+    margin-top: 8px;
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.attachment-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.attachment-main a {
+    font-weight: 600;
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.attachment-meta {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 12px;
+    color: #6b7280;
 }
 </style>

@@ -39,9 +39,15 @@ class ProjectController extends Controller
     {
         $project = Project::where('id', $id)
             ->where('user_id', auth()->id())
-            ->with(['tasks' => function($query) {
-                $query->with('user')->orderBy('order', 'asc');
-            }])
+            ->with([
+                'tasks' => function ($query) {
+                    $query->with([
+                        'user',
+                        'comments.user',
+                        'attachments.user',
+                    ])->orderBy('order', 'asc');
+                }
+            ])
             ->firstOrFail();
 
         return Inertia::render('Projects/Show', [
