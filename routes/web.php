@@ -8,6 +8,8 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskCommentController;
 use App\Http\Controllers\TaskAttachmentController;
+use App\Models\Project;
+use App\Models\Task;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,7 +32,46 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
+    $userId = auth()->id();
+
+    $taskQuery = Task::whereHas('project', function ($query) use ($userId) {
+        $query->where('user_id', $userId);
+    });
+
+    $stats = [
+        'projects' => Project::where('user_id', $userId)->count(),
+        'tasks' => (clone $taskQuery)->count(),
+        'in_progress' => (clone $taskQuery)->where('status', 'in_progress')->count(),
+        'review' => (clone $taskQuery)->where('status', 'review')->count(),
+        'done' => (clone $taskQuery)->where('status', 'done')->count(),
+    ];
+
+    $recentProjects = Project::where('user_id', $userId)
+        ->latest()
+        ->take(5)
+        ->get(['id', 'title', 'description', 'created_at']);
+
+    $recentTasks = Task::whereHas('project', function ($query) use ($userId) {
+        $query->where('user_id', $userId);
+    })
+        ->with('project:id,title')
+        ->latest()
+        ->take(6)
+        ->get([
+            'id',
+            'project_id',
+            'title',
+            'status',
+            'priority',
+            'due_date',
+            'created_at',
+        ]);
+
+    return Inertia::render('Dashboard', [
+        'stats' => $stats,
+        'recentProjects' => $recentProjects,
+        'recentTasks' => $recentTasks,
+    ]);
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
