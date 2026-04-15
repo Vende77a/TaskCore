@@ -11,12 +11,16 @@ use Inertia\Inertia;
 class ProjectController extends Controller
 {
 
-    public function index() {
-
-        $projects =auth()->user()->projects;
+    public function index()
+    {
+        $projects = auth()->user()
+            ->projects()
+            ->withCount('tasks')
+            ->latest()
+            ->get();
 
         return Inertia::render('Projects/Index', [
-            'projects' => $projects
+            'projects' => $projects,
         ]);
     }
 
