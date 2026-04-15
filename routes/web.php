@@ -23,11 +23,13 @@ use App\Models\Task;
 */
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+
+    return view('welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
     ]);
 });
 
