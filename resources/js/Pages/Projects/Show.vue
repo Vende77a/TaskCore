@@ -1,7 +1,8 @@
 <script setup>
-import { useForm, router, Link } from '@inertiajs/vue3'
+import { Head, useForm, router, Link } from '@inertiajs/vue3'
 import { ref, watch, computed } from 'vue'
 import draggable from 'vuedraggable'
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
 const props = defineProps({
     project: Object,
@@ -220,15 +221,74 @@ const formatFileSize = (bytes) => {
 </script>
 
 <template>
+    <Head :title="project.title" />
 
-    <Link :href="route('projects.index')" class="back-btn">
-        ← Back to projects
-    </Link>
+    <AuthenticatedLayout>
+        <template #header>
+            {{ project.title }}
+        </template>
 
-    <div class="page">
-        <h1 class="title">{{ project.title }}</h1>
+        <div class="project-show-page">
+            <section class="project-hero">
+                <div class="project-hero-left">
+                    <div class="breadcrumbs">
+                        <Link :href="route('dashboard')">Dashboard</Link>
+                        <span>/</span>
+                        <Link :href="route('projects.index')">Projects</Link>
+                        <span>/</span>
+                        <span class="current">{{ project.title }}</span>
+                    </div>
 
-        <div class="kanban">
+                    <h1 class="project-title-main">{{ project.title }}</h1>
+
+                    <p class="project-description-main">
+                        {{ project.description || 'У проекта пока нет описания.' }}
+                    </p>
+
+                    <div class="project-stats">
+                        <div class="project-stat">
+                            <span class="stat-name">Всего задач</span>
+                            <span class="stat-value">
+                                {{
+                                    columns.backlog.length +
+                                    columns.in_progress.length +
+                                    columns.review.length +
+                                    columns.done.length
+                                }}
+                            </span>
+                        </div>
+
+                        <div class="project-stat">
+                            <span class="stat-name">Backlog</span>
+                            <span class="stat-value">{{ columns.backlog.length }}</span>
+                        </div>
+
+                        <div class="project-stat">
+                            <span class="stat-name">In Progress</span>
+                            <span class="stat-value">{{ columns.in_progress.length }}</span>
+                        </div>
+
+                        <div class="project-stat">
+                            <span class="stat-name">Review</span>
+                            <span class="stat-value">{{ columns.review.length }}</span>
+                        </div>
+
+                        <div class="project-stat">
+                            <span class="stat-name">Done</span>
+                            <span class="stat-value">{{ columns.done.length }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="project-hero-right">
+                    <Link :href="route('projects.index')" class="back-to-projects-btn">
+                        ← К проектам
+                    </Link>
+                </div>
+            </section>
+
+            <div class="page">
+                <div class="kanban">
 
             <!-- BACKLOG -->
             <div class="column">
@@ -628,7 +688,9 @@ const formatFileSize = (bytes) => {
             </form>
         </aside>
 
-    </div>
+            </div>
+        </div>
+    </AuthenticatedLayout>
 </template>
 
 <style scoped>
@@ -987,5 +1049,112 @@ button:disabled {
     gap: 6px;
     font-size: 12px;
     color: #6b7280;
+}
+
+.project-show-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.project-hero {
+    background: linear-gradient(135deg, #1d4ed8, #1e3a8a);
+    color: white;
+    border-radius: 20px;
+    padding: 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+}
+
+.project-hero-left {
+    flex: 1;
+    min-width: 0;
+}
+
+.breadcrumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    font-size: 14px;
+    margin-bottom: 14px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.breadcrumbs a {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+}
+
+.breadcrumbs .current {
+    color: white;
+    font-weight: 600;
+}
+
+.project-title-main {
+    margin: 0;
+    font-size: 34px;
+    font-weight: 800;
+}
+
+.project-description-main {
+    margin: 12px 0 0 0;
+    max-width: 780px;
+    line-height: 1.7;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.project-stats {
+    margin-top: 22px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.project-stat {
+    min-width: 110px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-name {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.stat-value {
+    font-size: 22px;
+    font-weight: 800;
+    color: white;
+}
+
+.back-to-projects-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.16);
+    color: white;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .project-hero {
+        flex-direction: column;
+    }
+
+    .project-title-main {
+        font-size: 28px;
+    }
 }
 </style>

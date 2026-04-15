@@ -185,19 +185,6 @@ const formatDate = (value) => {
     line-height: 1.6;
 }
 
-.back-link {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none;
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
 .projects-grid {
     display: grid;
     grid-template-columns: 380px 1fr;
