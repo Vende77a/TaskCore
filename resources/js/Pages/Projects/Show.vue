@@ -154,6 +154,15 @@ const drawerForm = useForm({
     user_id: '',
 })
 
+const hasActiveFilters = computed(() => {
+    return (
+        !!searchQuery.value.trim() ||
+        !!selectedPriority.value ||
+        !!selectedUserId.value ||
+        overdueOnly.value
+    )
+})
+
 const selectedTask = computed(() => {
     const allTasks = Object.values(columns.value).flat()
     return allTasks.find(task => task.id === selectedTaskId.value) ?? null
@@ -273,6 +282,7 @@ const formatFileSize = (bytes) => {
 </script>
 
 <template>
+
     <Head :title="project.title" />
 
     <AuthenticatedLayout>
@@ -387,426 +397,441 @@ const formatFileSize = (bytes) => {
                 </div>
             </section>
 
+
+            <div v-if="hasActiveFilters" class="filters-warning">
+                Фильтры активны — перетаскивание карточек временно отключено.
+                Сбрось фильтры, чтобы снова менять порядок задач.
+            </div>
+
+
             <div class="page">
                 <div class="kanban">
 
-            <!-- BACKLOG -->
-            <div class="column">
-                <h2>📌 Backlog <span>{{ columns.backlog.length }}</span></h2>
+                    <!-- BACKLOG -->
+                    <div class="column">
+                        <h2>📌 Backlog <span>{{ columns.backlog.length }}</span></h2>
 
-                <draggable
-                    v-model="columns.backlog"
-                    group="tasks"
-                    item-key="id"
-                    @end="onEnd"
-                    class="drop-zone"
-                >
-                    <template #item="{ element: task }">
-                        <div class="task" @click="openTaskDrawer(task)">
-                            <div class="task-top">
-                                <div :class="['task-title', { done: task.status === 'done' }]">
-                                    {{ task.title }}
-                                </div>
+                        <draggable
+                            v-model="columns.backlog"
+                            group="tasks"
+                            item-key="id"
+                            @end="onEnd"
+                            class="drop-zone"
+                            :disabled="hasActiveFilters"
+                        >
+                            <template #item="{ element: task }">
+                                <div class="task" @click="openTaskDrawer(task)">
+                                    <div class="task-top">
+                                        <div :class="['task-title', { done: task.status === 'done' }]">
+                                            {{ task.title }}
+                                        </div>
 
-                                <span class="priority-badge">
+                                        <span class="priority-badge">
                                     {{ priorityLabel(task.priority) }}
                                  </span>
-                            </div>
+                                    </div>
 
-                            <div v-if="task.description" class="task-preview">
-                                {{ task.description }}
-                            </div>
+                                    <div v-if="task.description" class="task-preview">
+                                        {{ task.description }}
+                                    </div>
 
-                            <div class="task-meta">
-                                <span v-if="task.user">👤 {{ task.user.name }}</span>
-                                <span
-                                    v-if="task.due_date"
-                                    :class="['task-deadline', { overdue: isOverdue(task) }]"
-                                >
+                                    <div class="task-meta">
+                                        <span v-if="task.user">👤 {{ task.user.name }}</span>
+                                        <span
+                                            v-if="task.due_date"
+                                            :class="['task-deadline', { overdue: isOverdue(task) }]"
+                                        >
                                     📅 {{ formatShortDate(task.due_date) }}
                                 </span>
-                            </div>
+                                    </div>
 
-                            <div class="task-actions">
-                                <!-- твои кнопки оставляй, но обязательно .stop -->
-                                <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
-                                <button @click.stop="deleteTask(task.id)">🗑</button>
-                            </div>
-                        </div>
-                    </template>
 
-                    <template #footer>
-                        <div v-if="columns.backlog.length === 0" class="empty-state">
-                            No tasks here
-                        </div>
-                    </template>
-
-                </draggable>
-
-                <form @submit.prevent="submit" class="task-form">
-                    <input
-                        v-model="form.title"
-                        type="text"
-                        placeholder="New task..."
-                    />
-                    <button type="submit" :disabled="!form.title.trim()">
-                        +
-                    </button>
-                </form>
-
-            </div>
-
-            <!-- IN PROGRESS -->
-            <div class="column">
-                <h2>⚙️ In Progress <span>{{ columns.in_progress.length }}</span></h2>
-
-                <draggable
-                    v-model="columns.in_progress"
-                    group="tasks"
-                    item-key="id"
-                    @end="onEnd"
-                    class="drop-zone"
-                >
-                    <template #item="{ element: task }">
-                        <div class="task" @click="openTaskDrawer(task)">
-                            <div class="task-top">
-                                <div :class="['task-title', { done: task.status === 'done' }]">
-                                    {{ task.title }}
+                                    <div class="task-actions">
+                                        <!-- твои кнопки оставляй, но обязательно .stop -->
+                                        <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
+                                        <button @click.stop="deleteTask(task.id)">🗑</button>
+                                    </div>
                                 </div>
+                            </template>
 
-                                <span class="priority-badge">
+                            <template #footer>
+                                <div v-if="columns.backlog.length === 0" class="empty-state">
+                                    Нету задач здесь
+                                </div>
+                            </template>
+
+                        </draggable>
+
+                        <form @submit.prevent="submit" class="task-form">
+                            <input
+                                v-model="form.title"
+                                type="text"
+                                placeholder="New task..."
+                            />
+                            <button type="submit" :disabled="!form.title.trim()">
+                                +
+                            </button>
+                        </form>
+
+                    </div>
+
+                    <!-- IN PROGRESS -->
+                    <div class="column">
+                        <h2>⚙️ In Progress <span>{{ columns.in_progress.length }}</span></h2>
+
+                        <draggable
+                            v-model="columns.in_progress"
+                            group="tasks"
+                            item-key="id"
+                            @end="onEnd"
+                            class="drop-zone"
+                            :disabled="hasActiveFilters"
+                        >
+                            <template #item="{ element: task }">
+                                <div class="task" @click="openTaskDrawer(task)">
+                                    <div class="task-top">
+                                        <div :class="['task-title', { done: task.status === 'done' }]">
+                                            {{ task.title }}
+                                        </div>
+
+                                        <span class="priority-badge">
                                     {{ priorityLabel(task.priority) }}
                                  </span>
-                            </div>
+                                    </div>
 
-                            <div v-if="task.description" class="task-preview">
-                                {{ task.description }}
-                            </div>
+                                    <div v-if="task.description" class="task-preview">
+                                        {{ task.description }}
+                                    </div>
 
-                            <div class="task-meta">
-                                <span v-if="task.user">👤 {{ task.user.name }}</span>
-                                <span
-                                    v-if="task.due_date"
-                                    :class="['task-deadline', { overdue: isOverdue(task) }]"
-                                >
+                                    <div class="task-meta">
+                                        <span v-if="task.user">👤 {{ task.user.name }}</span>
+                                        <span
+                                            v-if="task.due_date"
+                                            :class="['task-deadline', { overdue: isOverdue(task) }]"
+                                        >
                                     📅 {{ formatShortDate(task.due_date) }}
                                 </span>
-                            </div>
+                                    </div>
 
-                            <div class="task-actions">
-                                <!-- твои кнопки оставляй, но обязательно .stop -->
-                                <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
-                                <button @click.stop="deleteTask(task.id)">🗑</button>
-                            </div>
-                        </div>
-                    </template>
 
-                    <template #footer>
-                        <div v-if="columns.in_progress.length === 0" class="empty-state">
-                            No tasks here
-                        </div>
-                    </template>
-
-                </draggable>
-            </div>
-
-            <!-- REVIEW -->
-            <div class="column">
-                <h2>🔍 Review <span>{{ columns.review.length }}</span></h2>
-
-                <draggable
-                    v-model="columns.review"
-                    group="tasks"
-                    item-key="id"
-                    @end="onEnd"
-                    class="drop-zone"
-                >
-                    <template #item="{ element: task }">
-                        <div class="task" @click="openTaskDrawer(task)">
-                            <div class="task-top">
-                                <div :class="['task-title', { done: task.status === 'done' }]">
-                                    {{ task.title }}
+                                    <div class="task-actions">
+                                        <!-- твои кнопки оставляй, но обязательно .stop -->
+                                        <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
+                                        <button @click.stop="deleteTask(task.id)">🗑</button>
+                                    </div>
                                 </div>
+                            </template>
 
-                                <span class="priority-badge">
+                            <template #footer>
+                                <div v-if="columns.in_progress.length === 0" class="empty-state">
+                                    Нету задач здесь
+                                </div>
+                            </template>
+
+                        </draggable>
+                    </div>
+
+                    <!-- REVIEW -->
+                    <div class="column">
+                        <h2>🔍 Review <span>{{ columns.review.length }}</span></h2>
+
+                        <draggable
+                            v-model="columns.review"
+                            group="tasks"
+                            item-key="id"
+                            @end="onEnd"
+                            class="drop-zone"
+                            :disabled="hasActiveFilters"
+                        >
+                            <template #item="{ element: task }">
+                                <div class="task" @click="openTaskDrawer(task)">
+                                    <div class="task-top">
+                                        <div :class="['task-title', { done: task.status === 'done' }]">
+                                            {{ task.title }}
+                                        </div>
+
+                                        <span class="priority-badge">
                                     {{ priorityLabel(task.priority) }}
                                  </span>
-                            </div>
+                                    </div>
 
-                            <div v-if="task.description" class="task-preview">
-                                {{ task.description }}
-                            </div>
+                                    <div v-if="task.description" class="task-preview">
+                                        {{ task.description }}
+                                    </div>
 
-                            <div class="task-meta">
-                                <span v-if="task.user">👤 {{ task.user.name }}</span>
-                                <span
-                                    v-if="task.due_date"
-                                    :class="['task-deadline', { overdue: isOverdue(task) }]"
-                                >
+                                    <div class="task-meta">
+                                        <span v-if="task.user">👤 {{ task.user.name }}</span>
+                                        <span
+                                            v-if="task.due_date"
+                                            :class="['task-deadline', { overdue: isOverdue(task) }]"
+                                        >
                                     📅 {{ formatShortDate(task.due_date) }}
                                 </span>
-                            </div>
+                                    </div>
 
-                            <div class="task-actions">
-                                <!-- твои кнопки оставляй, но обязательно .stop -->
-                                <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
-                                <button @click.stop="deleteTask(task.id)">🗑</button>
-                            </div>
-                        </div>
-                    </template>
 
-                    <template #footer>
-                        <div v-if="columns.review.length === 0" class="empty-state">
-                            No tasks here
-                        </div>
-                    </template>
+                                    <div class="task-actions">
+                                        <!-- твои кнопки оставляй, но обязательно .stop -->
+                                        <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
+                                        <button @click.stop="deleteTask(task.id)">🗑</button>
+                                    </div>
+                                </div>
+                            </template>
 
-                </draggable>
+                            <template #footer>
+                                <div v-if="columns.review.length === 0" class="empty-state">
+                                    Нету задач здесь
+                                </div>
+                            </template>
 
-            </div>
+                        </draggable>
 
-            <!-- DONE -->
-            <div class="column">
-                <h2>🏁 Done <span>{{ columns.done.length }}</span></h2>
+                    </div>
 
-                <draggable
-                    v-model="columns.done"
-                    group="tasks"
-                    item-key="id"
-                    @end="onEnd"
-                    class="drop-zone"
-                >
-                    <template #item="{ element: task }">
-                        <div class="task" @click="openTaskDrawer(task)">
-                            <div class="task-top">
-                                <div :class="['task-title', { done: task.status === 'done' }]">
-                                    {{ task.title }}
+                    <!-- DONE -->
+                    <div class="column">
+                        <h2>🏁 Done <span>{{ columns.done.length }}</span></h2>
+
+                        <draggable
+                            v-model="columns.done"
+                            group="tasks"
+                            item-key="id"
+                            @end="onEnd"
+                            class="drop-zone"
+                            :disabled="hasActiveFilters"
+                        >
+                            <template #item="{ element: task }">
+                                    <div class="task" @click="openTaskDrawer(task)">
+                                        <div class="task-top">
+                                            <div :class="['task-title', { done: task.status === 'done' }]">
+                                                {{ task.title }}
+                                            </div>
+
+                                            <span class="priority-badge">
+                                        {{ priorityLabel(task.priority) }}
+                                    </span>
+                                        </div>
+
+                                        <div v-if="task.description" class="task-preview">
+                                            {{ task.description }}
+                                        </div>
+
+
+                                <div class="task-meta">
+                                    <span v-if="task.user">👤 {{ task.user.name }}</span>
+                                    <span
+                                        v-if="task.due_date"
+                                        :class="['task-deadline', { overdue: isOverdue(task) }]"
+                                    >
+                                        📅 {{ formatShortDate(task.due_date) }}
+                                    </span>
                                 </div>
 
-                                <span class="priority-badge">
-                                    {{ priorityLabel(task.priority) }}
-                                </span>
-                            </div>
+                                        <div class="task-actions">
+                                            <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
+                                            <button @click.stop="deleteTask(task.id)">🗑</button>
+                                        </div>
+                                    </div>
+                            </template>
 
-                            <div v-if="task.description" class="task-preview">
-                                {{ task.description }}
-                            </div>
+                            <template #footer>
+                                <div v-if="columns.done.length === 0" class="empty-state">
+                                    Нету задач здесь
+                                </div>
+                            </template>
 
-                            <div class="task-meta">
-                                <span v-if="task.user">👤 {{ task.user.name }}</span>
-                                <span
-                                    v-if="task.due_date"
-                                    :class="['task-deadline', { overdue: isOverdue(task) }]"
-                                >
-                                    📅 {{ formatShortDate(task.due_date) }}
-                                </span>
-                            </div>
+                        </draggable>
+                    </div>
 
-                            <div class="task-actions">
-                                <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
-                                <button @click.stop="deleteTask(task.id)">🗑</button>
-                            </div>
-                        </div>
-                    </template>
-
-                    <template #footer>
-                        <div v-if="columns.done.length === 0" class="empty-state">
-                            No tasks here
-                        </div>
-                    </template>
-
-                </draggable>
-            </div>
-
-        </div>
-
-        <div
-            v-if="isDrawerOpen"
-            class="drawer-overlay"
-            @click="closeTaskDrawer"
-        ></div>
-
-        <aside class="task-drawer" :class="{ open: isDrawerOpen }">
-            <div class="drawer-header">
-                <h2>Карточка задачи</h2>
-                <button class="drawer-close" @click="closeTaskDrawer">✕</button>
-            </div>
-
-            <form v-if="selectedTask" class="drawer-body" @submit.prevent="saveTaskDetails">
-                <label class="drawer-field">
-                    <span>Название</span>
-                    <input v-model="drawerForm.title" type="text" />
-                    <small v-if="drawerForm.errors.title" class="field-error">
-                        {{ drawerForm.errors.title }}
-                    </small>
-                </label>
-
-                <label class="drawer-field">
-                    <span>Описание</span>
-                    <textarea v-model="drawerForm.description" rows="5"></textarea>
-                    <small v-if="drawerForm.errors.description" class="field-error">
-                        {{ drawerForm.errors.description }}
-                    </small>
-                </label>
-
-                <div class="drawer-grid">
-                    <label class="drawer-field">
-                        <span>Статус</span>
-                        <select v-model="drawerForm.status">
-                            <option value="backlog">Backlog</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="review">Review</option>
-                            <option value="done">Done</option>
-                        </select>
-                    </label>
-
-                    <label class="drawer-field">
-                        <span>Приоритет</span>
-                        <select v-model.number="drawerForm.priority">
-                            <option :value="1">Низкий</option>
-                            <option :value="2">Средний</option>
-                            <option :value="3">Высокий</option>
-                        </select>
-                    </label>
-
-                    <label class="drawer-field">
-                        <span>Дедлайн</span>
-                        <input v-model="drawerForm.due_date" type="datetime-local" />
-                    </label>
-
-                    <label class="drawer-field">
-                        <span>Исполнитель</span>
-                        <select v-model="drawerForm.user_id">
-                            <option value="">Не назначен</option>
-                            <option
-                                v-for="user in users"
-                                :key="user.id"
-                                :value="user.id"
-                            >
-                                {{ user.name }}
-                            </option>
-                        </select>
-                    </label>
                 </div>
 
-                <div class="drawer-meta">
-                    <div><strong>Создана:</strong> {{ formatDateTime(selectedTask.created_at) }}</div>
-                    <div><strong>Обновлена:</strong> {{ formatDateTime(selectedTask.updated_at) }}</div>
-                </div>
+                <div
+                    v-if="isDrawerOpen"
+                    class="drawer-overlay"
+                    @click="closeTaskDrawer"
+                ></div>
 
-                <div class="drawer-section">
-                    <h3>Комментарии</h3>
+                <aside class="task-drawer" :class="{ open: isDrawerOpen }">
+                    <div class="drawer-header">
+                        <h2>Карточка задачи</h2>
+                        <button class="drawer-close" @click="closeTaskDrawer">✕</button>
+                    </div>
 
-                    <form class="comment-form" @submit.prevent="submitComment">
+                    <form v-if="selectedTask" class="drawer-body" @submit.prevent="saveTaskDetails">
+                        <label class="drawer-field">
+                            <span>Название</span>
+                            <input v-model="drawerForm.title" type="text" />
+                            <small v-if="drawerForm.errors.title" class="field-error">
+                                {{ drawerForm.errors.title }}
+                            </small>
+                        </label>
+
+                        <label class="drawer-field">
+                            <span>Описание</span>
+                            <textarea v-model="drawerForm.description" rows="5"></textarea>
+                            <small v-if="drawerForm.errors.description" class="field-error">
+                                {{ drawerForm.errors.description }}
+                            </small>
+                        </label>
+
+                        <div class="drawer-grid">
+                            <label class="drawer-field">
+                                <span>Статус</span>
+                                <select v-model="drawerForm.status">
+                                    <option value="backlog">Backlog</option>
+                                    <option value="in_progress">In Progress</option>
+                                    <option value="review">Review</option>
+                                    <option value="done">Done</option>
+                                </select>
+                            </label>
+
+                            <label class="drawer-field">
+                                <span>Приоритет</span>
+                                <select v-model.number="drawerForm.priority">
+                                    <option :value="1">Низкий</option>
+                                    <option :value="2">Средний</option>
+                                    <option :value="3">Высокий</option>
+                                </select>
+                            </label>
+
+                            <label class="drawer-field">
+                                <span>Дедлайн</span>
+                                <input v-model="drawerForm.due_date" type="datetime-local" />
+                            </label>
+
+                            <label class="drawer-field">
+                                <span>Исполнитель</span>
+                                <select v-model="drawerForm.user_id">
+                                    <option value="">Не назначен</option>
+                                    <option
+                                        v-for="user in users"
+                                        :key="user.id"
+                                        :value="user.id"
+                                    >
+                                        {{ user.name }}
+                                    </option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="drawer-meta">
+                            <div><strong>Создана:</strong> {{ formatDateTime(selectedTask.created_at) }}</div>
+                            <div><strong>Обновлена:</strong> {{ formatDateTime(selectedTask.updated_at) }}</div>
+                        </div>
+
+                        <div class="drawer-section">
+                            <h3>Комментарии</h3>
+
+                            <form class="comment-form" @submit.prevent="submitComment">
                         <textarea
                             v-model="commentForm.body"
                             rows="3"
                             placeholder="Напиши комментарий..."
                         ></textarea>
 
-                        <small v-if="commentForm.errors.body" class="field-error">
-                            {{ commentForm.errors.body }}
-                        </small>
+                                <small v-if="commentForm.errors.body" class="field-error">
+                                    {{ commentForm.errors.body }}
+                                </small>
 
-                        <button type="submit" :disabled="commentForm.processing">
-                            Добавить комментарий
-                        </button>
-                    </form>
+                                <button type="submit" :disabled="commentForm.processing">
+                                    Добавить комментарий
+                                </button>
+                            </form>
 
-                    <div
-                        v-if="selectedTask.comments && selectedTask.comments.length"
-                        class="comments-list"
-                    >
-                        <div
-                            v-for="comment in selectedTask.comments"
-                            :key="comment.id"
-                            class="comment-item"
-                        >
-                            <div class="comment-head">
-                                <strong>{{ comment.user?.name ?? 'Пользователь' }}</strong>
-                                <span>{{ formatDateTime(comment.created_at) }}</span>
-                            </div>
-
-                            <div class="comment-body">
-                                {{ comment.body }}
-                            </div>
-
-                            <button
-                                class="comment-delete"
-                                @click="deleteComment(comment.id)"
+                            <div
+                                v-if="selectedTask.comments && selectedTask.comments.length"
+                                class="comments-list"
                             >
-                                Удалить
-                            </button>
-                        </div>
-                    </div>
+                                <div
+                                    v-for="comment in selectedTask.comments"
+                                    :key="comment.id"
+                                    class="comment-item"
+                                >
+                                    <div class="comment-head">
+                                        <strong>{{ comment.user?.name ?? 'Пользователь' }}</strong>
+                                        <span>{{ formatDateTime(comment.created_at) }}</span>
+                                    </div>
 
-                    <div v-else class="drawer-placeholder">
-                        Пока комментариев нет.
-                    </div>
-                </div>
+                                    <div class="comment-body">
+                                        {{ comment.body }}
+                                    </div>
 
-                <div class="drawer-section">
-                    <h3>Прикреплённые файлы</h3>
-
-                    <form class="attachment-form" @submit.prevent="submitAttachment">
-                        <input type="file" @change="onFileChange" />
-
-                        <small v-if="attachmentForm.errors.file" class="field-error">
-                            {{ attachmentForm.errors.file }}
-                        </small>
-
-                        <button type="submit" :disabled="attachmentForm.processing">
-                            Загрузить файл
-                        </button>
-                    </form>
-
-                    <div
-                        v-if="selectedTask.attachments && selectedTask.attachments.length"
-                        class="attachments-list"
-                    >
-                        <div
-                            v-for="attachment in selectedTask.attachments"
-                            :key="attachment.id"
-                            class="attachment-item"
-                        >
-                            <div class="attachment-main">
-                                <a :href="attachment.url" target="_blank">
-                                    {{ attachment.original_name }}
-                                </a>
-
-                                <div class="attachment-meta">
-                                    <span>{{ formatFileSize(attachment.size) }}</span>
-                                    <span v-if="attachment.user">• {{ attachment.user.name }}</span>
-                                    <span>• {{ formatDateTime(attachment.created_at) }}</span>
+                                    <button
+                                        class="comment-delete"
+                                        @click="deleteComment(comment.id)"
+                                    >
+                                        Удалить
+                                    </button>
                                 </div>
                             </div>
 
-                            <button @click="deleteAttachment(attachment.id)">
-                                Удалить
+                            <div v-else class="drawer-placeholder">
+                                Пока комментариев нет.
+                            </div>
+                        </div>
+
+                        <div class="drawer-section">
+                            <h3>Прикреплённые файлы</h3>
+
+                            <form class="attachment-form" @submit.prevent="submitAttachment">
+                                <input type="file" @change="onFileChange" />
+
+                                <small v-if="attachmentForm.errors.file" class="field-error">
+                                    {{ attachmentForm.errors.file }}
+                                </small>
+
+                                <button type="submit" :disabled="attachmentForm.processing">
+                                    Загрузить файл
+                                </button>
+                            </form>
+
+                            <div
+                                v-if="selectedTask.attachments && selectedTask.attachments.length"
+                                class="attachments-list"
+                            >
+                                <div
+                                    v-for="attachment in selectedTask.attachments"
+                                    :key="attachment.id"
+                                    class="attachment-item"
+                                >
+                                    <div class="attachment-main">
+                                        <a :href="attachment.url" target="_blank">
+                                            {{ attachment.original_name }}
+                                        </a>
+
+                                        <div class="attachment-meta">
+                                            <span>{{ formatFileSize(attachment.size) }}</span>
+                                            <span v-if="attachment.user">• {{ attachment.user.name }}</span>
+                                            <span>• {{ formatDateTime(attachment.created_at) }}</span>
+                                        </div>
+                                    </div>
+
+                                    <button @click="deleteAttachment(attachment.id)">
+                                        Удалить
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div v-else class="drawer-placeholder">
+                                Пока файлов нет.
+                            </div>
+                        </div>
+
+                        <div class="drawer-footer">
+                            <button type="submit" :disabled="drawerForm.processing">
+                                Сохранить
+                            </button>
+
+                            <button
+                                type="button"
+                                class="danger-btn"
+                                @click="deleteTask(selectedTask.id)"
+                            >
+                                Удалить задачу
                             </button>
                         </div>
-                    </div>
-
-                    <div v-else class="drawer-placeholder">
-                        Пока файлов нет.
-                    </div>
-                </div>
-
-                <div class="drawer-footer">
-                    <button type="submit" :disabled="drawerForm.processing">
-                        Сохранить
-                    </button>
-
-                    <button
-                        type="button"
-                        class="danger-btn"
-                        @click="deleteTask(selectedTask.id)"
-                    >
-                        Удалить задачу
-                    </button>
-                </div>
-            </form>
-        </aside>
+                    </form>
+                </aside>
 
             </div>
         </div>
@@ -1355,5 +1380,16 @@ button:disabled {
 .task-deadline.overdue {
     color: #dc2626;
     font-weight: 700;
+}
+
+.filters-warning {
+    margin-top: -8px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    color: #9a3412;
+    font-size: 14px;
+    font-weight: 600;
 }
 </style>
