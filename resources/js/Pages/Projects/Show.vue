@@ -30,6 +30,14 @@ const isOverdue = (task) => {
     return due < now
 }
 
+const statusLabel = (status) => {
+    if (status === 'backlog') return 'Backlog'
+    if (status === 'in_progress') return 'In Progress'
+    if (status === 'review') return 'Review'
+    if (status === 'done') return 'Done'
+    return status
+}
+
 const matchesFilters = (task) => {
     const query = searchQuery.value.trim().toLowerCase()
 
@@ -422,13 +430,19 @@ const formatFileSize = (bytes) => {
                             <template #item="{ element: task }">
                                 <div class="task" @click="openTaskDrawer(task)">
                                     <div class="task-top">
-                                        <div :class="['task-title', { done: task.status === 'done' }]">
-                                            {{ task.title }}
+                                        <div class="task-heading">
+                                            <div :class="['task-title', { done: task.status === 'done' }]">
+                                                {{ task.title }}
+                                            </div>
+
+                                            <span :class="['status-chip', `status-${task.status}`]">
+                                                {{ statusLabel(task.status) }}
+                                            </span>
                                         </div>
 
-                                        <span class="priority-badge">
-                                    {{ priorityLabel(task.priority) }}
-                                 </span>
+                                        <span :class="['priority-badge', `priority-${task.priority}`]">
+                                            {{ priorityLabel(task.priority) }}
+                                        </span>
                                     </div>
 
                                     <div v-if="task.description" class="task-preview">
@@ -436,20 +450,20 @@ const formatFileSize = (bytes) => {
                                     </div>
 
                                     <div class="task-meta">
-                                        <span v-if="task.user">👤 {{ task.user.name }}</span>
+                                        <span v-if="task.user" class="task-user">
+                                            👤 {{ task.user.name }}
+                                        </span>
+
                                         <span
                                             v-if="task.due_date"
                                             :class="['task-deadline', { overdue: isOverdue(task) }]"
                                         >
-                                    📅 {{ formatShortDate(task.due_date) }}
-                                </span>
+                                            📅 {{ formatShortDate(task.due_date) }}
+                                        </span>
                                     </div>
 
-
                                     <div class="task-actions">
-                                        <!-- твои кнопки оставляй, но обязательно .stop -->
-                                        <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
-                                        <button @click.stop="deleteTask(task.id)">🗑</button>
+                                        <button @click.stop="deleteTask(task.id)">Удалить</button>
                                     </div>
                                 </div>
                             </template>
@@ -490,13 +504,19 @@ const formatFileSize = (bytes) => {
                             <template #item="{ element: task }">
                                 <div class="task" @click="openTaskDrawer(task)">
                                     <div class="task-top">
-                                        <div :class="['task-title', { done: task.status === 'done' }]">
-                                            {{ task.title }}
+                                        <div class="task-heading">
+                                            <div :class="['task-title', { done: task.status === 'done' }]">
+                                                {{ task.title }}
+                                            </div>
+
+                                            <span :class="['status-chip', `status-${task.status}`]">
+                                                {{ statusLabel(task.status) }}
+                                            </span>
                                         </div>
 
-                                        <span class="priority-badge">
-                                    {{ priorityLabel(task.priority) }}
-                                 </span>
+                                        <span :class="['priority-badge', `priority-${task.priority}`]">
+                                            {{ priorityLabel(task.priority) }}
+                                        </span>
                                     </div>
 
                                     <div v-if="task.description" class="task-preview">
@@ -504,20 +524,20 @@ const formatFileSize = (bytes) => {
                                     </div>
 
                                     <div class="task-meta">
-                                        <span v-if="task.user">👤 {{ task.user.name }}</span>
+                                        <span v-if="task.user" class="task-user">
+                                            👤 {{ task.user.name }}
+                                        </span>
+
                                         <span
                                             v-if="task.due_date"
                                             :class="['task-deadline', { overdue: isOverdue(task) }]"
                                         >
-                                    📅 {{ formatShortDate(task.due_date) }}
-                                </span>
+                                            📅 {{ formatShortDate(task.due_date) }}
+                                        </span>
                                     </div>
 
-
                                     <div class="task-actions">
-                                        <!-- твои кнопки оставляй, но обязательно .stop -->
-                                        <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
-                                        <button @click.stop="deleteTask(task.id)">🗑</button>
+                                        <button @click.stop="deleteTask(task.id)">Удалить</button>
                                     </div>
                                 </div>
                             </template>
@@ -546,13 +566,19 @@ const formatFileSize = (bytes) => {
                             <template #item="{ element: task }">
                                 <div class="task" @click="openTaskDrawer(task)">
                                     <div class="task-top">
-                                        <div :class="['task-title', { done: task.status === 'done' }]">
-                                            {{ task.title }}
+                                        <div class="task-heading">
+                                            <div :class="['task-title', { done: task.status === 'done' }]">
+                                                {{ task.title }}
+                                            </div>
+
+                                            <span :class="['status-chip', `status-${task.status}`]">
+                                                {{ statusLabel(task.status) }}
+                                            </span>
                                         </div>
 
-                                        <span class="priority-badge">
-                                    {{ priorityLabel(task.priority) }}
-                                 </span>
+                                        <span :class="['priority-badge', `priority-${task.priority}`]">
+                                            {{ priorityLabel(task.priority) }}
+                                        </span>
                                     </div>
 
                                     <div v-if="task.description" class="task-preview">
@@ -560,20 +586,20 @@ const formatFileSize = (bytes) => {
                                     </div>
 
                                     <div class="task-meta">
-                                        <span v-if="task.user">👤 {{ task.user.name }}</span>
+                                        <span v-if="task.user" class="task-user">
+                                            👤 {{ task.user.name }}
+                                        </span>
+
                                         <span
                                             v-if="task.due_date"
                                             :class="['task-deadline', { overdue: isOverdue(task) }]"
                                         >
-                                    📅 {{ formatShortDate(task.due_date) }}
-                                </span>
+                                            📅 {{ formatShortDate(task.due_date) }}
+                                        </span>
                                     </div>
 
-
                                     <div class="task-actions">
-                                        <!-- твои кнопки оставляй, но обязательно .stop -->
-                                        <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
-                                        <button @click.stop="deleteTask(task.id)">🗑</button>
+                                        <button @click.stop="deleteTask(task.id)">Удалить</button>
                                     </div>
                                 </div>
                             </template>
@@ -601,37 +627,44 @@ const formatFileSize = (bytes) => {
                             :disabled="hasActiveFilters"
                         >
                             <template #item="{ element: task }">
-                                    <div class="task" @click="openTaskDrawer(task)">
-                                        <div class="task-top">
+                                <div class="task" @click="openTaskDrawer(task)">
+                                    <div class="task-top">
+                                        <div class="task-heading">
                                             <div :class="['task-title', { done: task.status === 'done' }]">
                                                 {{ task.title }}
                                             </div>
 
-                                            <span class="priority-badge">
-                                        {{ priorityLabel(task.priority) }}
-                                    </span>
+                                            <span :class="['status-chip', `status-${task.status}`]">
+                                                {{ statusLabel(task.status) }}
+                                            </span>
                                         </div>
 
-                                        <div v-if="task.description" class="task-preview">
-                                            {{ task.description }}
-                                        </div>
-
-
-                                <div class="task-meta">
-                                    <span v-if="task.user">👤 {{ task.user.name }}</span>
-                                    <span
-                                        v-if="task.due_date"
-                                        :class="['task-deadline', { overdue: isOverdue(task) }]"
-                                    >
-                                        📅 {{ formatShortDate(task.due_date) }}
-                                    </span>
-                                </div>
-
-                                        <div class="task-actions">
-                                            <button @click.stop="updateStatus(task.id, 'in_progress')">➡️ Start</button>
-                                            <button @click.stop="deleteTask(task.id)">🗑</button>
-                                        </div>
+                                        <span :class="['priority-badge', `priority-${task.priority}`]">
+                                            {{ priorityLabel(task.priority) }}
+                                        </span>
                                     </div>
+
+                                    <div v-if="task.description" class="task-preview">
+                                        {{ task.description }}
+                                    </div>
+
+                                    <div class="task-meta">
+                                        <span v-if="task.user" class="task-user">
+                                            👤 {{ task.user.name }}
+                                        </span>
+
+                                        <span
+                                            v-if="task.due_date"
+                                            :class="['task-deadline', { overdue: isOverdue(task) }]"
+                                        >
+                                            📅 {{ formatShortDate(task.due_date) }}
+                                        </span>
+                                    </div>
+
+                                    <div class="task-actions">
+                                        <button @click.stop="deleteTask(task.id)">Удалить</button>
+                                    </div>
+                                </div>
                             </template>
 
                             <template #footer>
@@ -924,18 +957,6 @@ button:hover {
 .task-form input {
     flex: 1;
     padding: 6px;
-}
-
-.back-btn {
-    display: inline-block;
-    margin: 20px 0 0 20px;
-    font-size: 14px;
-    color: #6b7280;
-    text-decoration: none;
-    transition: color 0.2s;
-}
-.back-btn:hover {
-    color: #111827;
 }
 
 .drop-zone {
@@ -1391,5 +1412,82 @@ button:disabled {
     color: #9a3412;
     font-size: 14px;
     font-weight: 600;
+}
+
+.task-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 999px;
+}
+
+.status-backlog {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.status-in_progress {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.status-review {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.status-done {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.priority-badge {
+    font-size: 11px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.priority-1 {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.priority-2 {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.priority-3 {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.task-deadline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.task-deadline.overdue {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+.task-user {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
 </style>
