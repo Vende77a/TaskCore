@@ -40,7 +40,7 @@ const priorityLabel = (priority) => {
 
     <AuthenticatedLayout>
         <template #header>
-            Dashboard
+            Главная страница
         </template>
 
         <div class="dashboard-page">
