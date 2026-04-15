@@ -9,6 +9,11 @@ const props = defineProps({
     users: Array,
 })
 
+const searchQuery = ref('')
+const selectedPriority = ref('')
+const selectedUserId = ref('')
+const overdueOnly = ref(false)
+
 const columns = ref({
     backlog: [],
     in_progress: [],
@@ -16,8 +21,51 @@ const columns = ref({
     done: []
 })
 
+const isOverdue = (task) => {
+    if (!task.due_date || task.status === 'done') return false
+
+    const now = new Date()
+    const due = new Date(task.due_date)
+
+    return due < now
+}
+
+const matchesFilters = (task) => {
+    const query = searchQuery.value.trim().toLowerCase()
+
+    const matchesQuery =
+        !query ||
+        task.title?.toLowerCase().includes(query) ||
+        task.description?.toLowerCase().includes(query)
+
+    const matchesPriority =
+        !selectedPriority.value ||
+        String(task.priority) === String(selectedPriority.value)
+
+    const matchesUser =
+        !selectedUserId.value ||
+        String(task.user_id) === String(selectedUserId.value)
+
+    const matchesOverdue =
+        !overdueOnly.value || isOverdue(task)
+
+    return (
+        matchesQuery &&
+        matchesPriority &&
+        matchesUser &&
+        matchesOverdue
+    )
+}
+
+const resetFilters = () => {
+    searchQuery.value = ''
+    selectedPriority.value = ''
+    selectedUserId.value = ''
+    overdueOnly.value = false
+}
+
 const syncColumns = () => {
-    const tasks = props.project.tasks
+    const tasks = props.project.tasks.filter(matchesFilters)
 
     columns.value.backlog = tasks
         .filter(t => t.status === 'backlog')
@@ -38,6 +86,10 @@ const syncColumns = () => {
 
 syncColumns()
 watch(() => props.project.tasks, syncColumns, { deep: true })
+watch(
+    [searchQuery, selectedPriority, selectedUserId, overdueOnly],
+    syncColumns
+)
 
 const form = useForm({
     title: '',
@@ -287,6 +339,54 @@ const formatFileSize = (bytes) => {
                 </div>
             </section>
 
+            <section class="board-toolbar">
+                <div class="toolbar-group toolbar-search">
+                    <label>Поиск</label>
+                    <input
+                        v-model="searchQuery"
+                        type="text"
+                        placeholder="Найти задачу по названию или описанию"
+                    />
+                </div>
+
+                <div class="toolbar-group">
+                    <label>Приоритет</label>
+                    <select v-model="selectedPriority">
+                        <option value="">Все</option>
+                        <option value="1">Низкий</option>
+                        <option value="2">Средний</option>
+                        <option value="3">Высокий</option>
+                    </select>
+                </div>
+
+                <div class="toolbar-group">
+                    <label>Исполнитель</label>
+                    <select v-model="selectedUserId">
+                        <option value="">Все</option>
+                        <option
+                            v-for="user in users"
+                            :key="user.id"
+                            :value="user.id"
+                        >
+                            {{ user.name }}
+                        </option>
+                    </select>
+                </div>
+
+                <div class="toolbar-group toolbar-checkbox">
+                    <label class="checkbox-label">
+                        <input v-model="overdueOnly" type="checkbox" />
+                        <span>Только просроченные</span>
+                    </label>
+                </div>
+
+                <div class="toolbar-group toolbar-actions">
+                    <button type="button" class="reset-filters-btn" @click="resetFilters">
+                        Сбросить фильтры
+                    </button>
+                </div>
+            </section>
+
             <div class="page">
                 <div class="kanban">
 
@@ -319,7 +419,12 @@ const formatFileSize = (bytes) => {
 
                             <div class="task-meta">
                                 <span v-if="task.user">👤 {{ task.user.name }}</span>
-                                <span v-if="task.due_date">📅 {{ formatShortDate(task.due_date) }}</span>
+                                <span
+                                    v-if="task.due_date"
+                                    :class="['task-deadline', { overdue: isOverdue(task) }]"
+                                >
+                                    📅 {{ formatShortDate(task.due_date) }}
+                                </span>
                             </div>
 
                             <div class="task-actions">
@@ -380,7 +485,12 @@ const formatFileSize = (bytes) => {
 
                             <div class="task-meta">
                                 <span v-if="task.user">👤 {{ task.user.name }}</span>
-                                <span v-if="task.due_date">📅 {{ formatShortDate(task.due_date) }}</span>
+                                <span
+                                    v-if="task.due_date"
+                                    :class="['task-deadline', { overdue: isOverdue(task) }]"
+                                >
+                                    📅 {{ formatShortDate(task.due_date) }}
+                                </span>
                             </div>
 
                             <div class="task-actions">
@@ -429,7 +539,12 @@ const formatFileSize = (bytes) => {
 
                             <div class="task-meta">
                                 <span v-if="task.user">👤 {{ task.user.name }}</span>
-                                <span v-if="task.due_date">📅 {{ formatShortDate(task.due_date) }}</span>
+                                <span
+                                    v-if="task.due_date"
+                                    :class="['task-deadline', { overdue: isOverdue(task) }]"
+                                >
+                                    📅 {{ formatShortDate(task.due_date) }}
+                                </span>
                             </div>
 
                             <div class="task-actions">
@@ -479,7 +594,12 @@ const formatFileSize = (bytes) => {
 
                             <div class="task-meta">
                                 <span v-if="task.user">👤 {{ task.user.name }}</span>
-                                <span v-if="task.due_date">📅 {{ formatShortDate(task.due_date) }}</span>
+                                <span
+                                    v-if="task.due_date"
+                                    :class="['task-deadline', { overdue: isOverdue(task) }]"
+                                >
+                                    📅 {{ formatShortDate(task.due_date) }}
+                                </span>
                             </div>
 
                             <div class="task-actions">
@@ -1156,5 +1276,84 @@ button:disabled {
     .project-title-main {
         font-size: 28px;
     }
+}
+
+.board-toolbar {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto auto;
+    gap: 14px;
+    align-items: end;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+}
+
+.toolbar-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.toolbar-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.toolbar-group input[type="text"],
+.toolbar-group select {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    background: white;
+}
+
+.toolbar-checkbox {
+    justify-content: center;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 42px;
+    font-size: 14px;
+    color: #374151;
+}
+
+.toolbar-actions {
+    justify-content: end;
+}
+
+.reset-filters-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+    .board-toolbar {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    .board-toolbar {
+        grid-template-columns: 1fr;
+    }
+}
+
+.task-deadline.overdue {
+    color: #dc2626;
+    font-weight: 700;
 }
 </style>
