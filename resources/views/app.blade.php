@@ -14,6 +14,7 @@
         @routes
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
+        <link rel="icon" type="image/png" href="{{ asset('images/taskcore-logo.png') }}">
     </head>
     <body class="font-sans antialiased">
         @inertia
