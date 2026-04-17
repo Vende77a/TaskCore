@@ -1,11 +1,56 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { Link, usePage } from '@inertiajs/vue3'
+import { Link, usePage, router } from '@inertiajs/vue3'
 
 const page = usePage()
 const sidebarOpen = ref(false)
 
 const user = computed(() => page.props.auth?.user ?? null)
+
+const notificationsOpen = ref(false)
+const notificationsLoading = ref(false)
+const notifications = ref([])
+const unreadCount = computed(() => page.props.auth?.unreadNotificationsCount ?? 0)
+
+const formatDateTime = (value) => {
+    if (!value) return '—'
+    return new Date(value).toLocaleString('ru-RU')
+}
+
+const toggleNotifications = async () => {
+    notificationsOpen.value = !notificationsOpen.value
+
+    if (notificationsOpen.value && notifications.value.length === 0) {
+        notificationsLoading.value = true
+
+        try {
+            const response = await fetch(route('notifications.index'), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                },
+                credentials: 'same-origin',
+            })
+
+            const data = await response.json()
+            notifications.value = data.notifications ?? []
+        } finally {
+            notificationsLoading.value = false
+        }
+    }
+}
+
+const markAllNotificationsRead = () => {
+    router.post(route('notifications.readAll'), {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+            notifications.value = notifications.value.map(item => ({
+                ...item,
+                read_at: item.read_at ?? new Date().toISOString(),
+            }))
+        }
+    })
+}
 </script>
 
 <template>
@@ -92,6 +137,69 @@ const user = computed(() => page.props.auth?.user ?? null)
                         </div>
                     </div>
                 </div>
+
+                <div class="notifications-wrapper">
+                    <button
+                        type="button"
+                        class="notifications-button"
+                        @click="toggleNotifications"
+                    >
+                        🔔
+                        <span v-if="unreadCount > 0" class="notifications-badge">
+            {{ unreadCount > 99 ? '99+' : unreadCount }}
+        </span>
+                    </button>
+
+                    <div v-if="notificationsOpen" class="notifications-dropdown">
+                        <div class="notifications-dropdown-header">
+                            <div>
+                                <strong>Уведомления</strong>
+                            </div>
+
+                            <button
+                                v-if="unreadCount > 0"
+                                type="button"
+                                class="mark-read-btn"
+                                @click="markAllNotificationsRead"
+                            >
+                                Прочитать все
+                            </button>
+                        </div>
+
+                        <div v-if="notificationsLoading" class="notifications-state">
+                            Загрузка...
+                        </div>
+
+                        <div
+                            v-else-if="notifications.length"
+                            class="notifications-list"
+                        >
+                            <div
+                                v-for="notification in notifications"
+                                :key="notification.id"
+                                :class="['notification-item', { unread: !notification.read_at }]"
+                            >
+                                <div class="notification-item-top">
+                    <span :class="['notification-type', `type-${notification.type}`]">
+                        {{ notification.type || 'notification' }}
+                    </span>
+                                    <span class="notification-date">
+                        {{ formatDateTime(notification.created_at) }}
+                    </span>
+                                </div>
+
+                                <div class="notification-message">
+                                    {{ notification.message }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div v-else class="notifications-state">
+                            Пока уведомлений нет.
+                        </div>
+                    </div>
+                </div>
+
             </header>
 
             <main class="page-content">
@@ -318,5 +426,148 @@ const user = computed(() => page.props.auth?.user ?? null)
     height: 100%;
     object-fit: contain;
     display: block;
+}
+
+.notifications-wrapper {
+    position: relative;
+}
+
+.notifications-button {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: white;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.notifications-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: #dc2626;
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notifications-dropdown {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 360px;
+    max-width: calc(100vw - 32px);
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+    padding: 14px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.notifications-dropdown-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.mark-read-btn {
+    background: #eef2ff;
+    color: #3730a3;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.notifications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px;
+    background: #f9fafb;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.notification-item.unread {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.notification-item-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.notification-type {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.type-added_to_project {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.type-task_assigned {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.type-task_commented {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.notification-date {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.notification-message {
+    font-size: 14px;
+    color: #111827;
+    line-height: 1.5;
+}
+
+.notifications-state {
+    padding: 14px;
+    border: 1px dashed #d1d5db;
+    border-radius: 12px;
+    background: #f9fafb;
+    color: #6b7280;
+    font-size: 14px;
+    text-align: center;
 }
 </style>

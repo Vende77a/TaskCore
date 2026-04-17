@@ -9,6 +9,7 @@ use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskCommentController;
 use App\Http\Controllers\TaskAttachmentController;
 use App\Http\Controllers\ProjectMemberController;
+use App\Http\Controllers\NotificationController;
 use App\Models\Project;
 use App\Models\Task;
 
@@ -89,6 +90,11 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/tasks/reorder', [TaskController::class, 'reorder'])->name('tasks.reorder');
+    Route::get('/notifications', [NotificationController::class, 'index'])
+        ->name('notifications.index');
+
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])
+        ->name('notifications.readAll');
 });
 
 Route::middleware('auth')->group(function () {
