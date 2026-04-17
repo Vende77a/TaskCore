@@ -54,7 +54,11 @@ class ProjectController extends Controller
             ->with([
                 'members:id,name,email',
                 'tasks' => function ($query) {
-                    $query->with('user')->orderBy('order', 'asc');
+                    $query->with([
+                        'user:id,name,email',
+                        'comments.user:id,name,email',
+                        'attachments.user:id,name,email',
+                    ])->orderBy('order', 'asc');
                 }
             ])
             ->firstOrFail();
