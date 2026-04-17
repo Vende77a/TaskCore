@@ -78,6 +78,7 @@ class ProjectController extends Controller
                 ->values(),
             'currentUserRole' => $currentUser?->pivot?->role,
             'currentUserId' => auth()->id(),
+            'canManageMembers' => $project->canManageMembers(auth()->user()),
         ]);
     }
 
