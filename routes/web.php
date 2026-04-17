@@ -37,26 +37,28 @@ Route::get('/', function () {
 Route::get('/dashboard', function () {
     $userId = auth()->id();
 
-    $taskQuery = Task::whereHas('project', function ($query) use ($userId) {
-        $query->where('user_id', $userId);
+    $projectQuery = Project::whereHas('members', function ($query) use ($userId) {
+        $query->where('users.id', $userId);
+    });
+
+    $taskQuery = Task::whereHas('project.members', function ($query) use ($userId) {
+        $query->where('users.id', $userId);
     });
 
     $stats = [
-        'projects' => Project::where('user_id', $userId)->count(),
+        'projects' => (clone $projectQuery)->count(),
         'tasks' => (clone $taskQuery)->count(),
         'in_progress' => (clone $taskQuery)->where('status', 'in_progress')->count(),
         'review' => (clone $taskQuery)->where('status', 'review')->count(),
         'done' => (clone $taskQuery)->where('status', 'done')->count(),
     ];
 
-    $recentProjects = Project::where('user_id', $userId)
+    $recentProjects = (clone $projectQuery)
         ->latest()
         ->take(5)
         ->get(['id', 'title', 'description', 'created_at']);
 
-    $recentTasks = Task::whereHas('project', function ($query) use ($userId) {
-        $query->where('user_id', $userId);
-    })
+    $recentTasks = (clone $taskQuery)
         ->with('project:id,title')
         ->latest()
         ->take(6)

@@ -114,9 +114,20 @@ const form = useForm({
 const isAdmin = computed(() => props.currentUserRole === 'admin')
 const canCreateTask = computed(() => ['admin', 'member'].includes(props.currentUserRole))
 
+const showCreateTaskDetails = ref(false)
+
+const toggleCreateTaskDetails = () => {
+    showCreateTaskDetails.value = !showCreateTaskDetails.value
+}
+
 const submit = () => {
     form.post(route('tasks.store'), {
-        onSuccess: () => form.reset()
+        onSuccess: () => {
+            form.reset()
+            form.project_id = props.project.id
+            form.priority = 1
+            showCreateTaskDetails.value = false
+        }
     })
 }
 
@@ -633,41 +644,74 @@ const removeMember = (member) => {
                         </draggable>
 
                         <form v-if="canCreateTask" @submit.prevent="submit" class="task-form">
-                            <input
-                                v-model="form.title"
-                                type="text"
-                                placeholder="Новая задача..."
-                            />
+                            <div class="task-form-main">
+                                <input
+                                    v-model="form.title"
+                                    type="text"
+                                    placeholder="Новая задача..."
+                                    class="task-form-title"
+                                />
 
-                            <textarea
-                                v-model="form.description"
-                                placeholder="Описание задачи"
-                            ></textarea>
+                                <button
+                                    type="button"
+                                    class="task-form-toggle"
+                                    @click="toggleCreateTaskDetails"
+                                >
+                                    {{ showCreateTaskDetails ? 'Скрыть' : 'Параметры' }}
+                                </button>
 
-                            <template v-if="isAdmin">
-                                <select v-model="form.user_id">
-                                    <option value="">Не назначен</option>
-                                    <option
-                                        v-for="user in projectMembers"
-                                        :key="user.id"
-                                        :value="user.id"
-                                    >
-                                        {{ user.name }}
-                                    </option>
-                                </select>
+                                <button
+                                    type="submit"
+                                    class="task-form-submit"
+                                    :disabled="!form.title.trim()"
+                                >
+                                    +
+                                </button>
+                            </div>
 
-                                <input v-model="form.due_date" type="date" />
+                            <div v-if="showCreateTaskDetails" class="task-form-details">
+        <textarea
+            v-model="form.description"
+            placeholder="Описание задачи"
+            rows="3"
+        ></textarea>
 
-                                <select v-model.number="form.priority">
-                                    <option :value="1">Низкий</option>
-                                    <option :value="2">Средний</option>
-                                    <option :value="3">Высокий</option>
-                                </select>
-                            </template>
+                                <template v-if="isAdmin">
+                                    <div class="task-form-grid">
+                                        <label class="task-form-field">
+                                            <span>Исполнитель</span>
+                                            <select v-model="form.user_id">
+                                                <option value="">Не назначен</option>
+                                                <option
+                                                    v-for="user in projectMembers"
+                                                    :key="user.id"
+                                                    :value="user.id"
+                                                >
+                                                    {{ user.name }}
+                                                </option>
+                                            </select>
+                                        </label>
 
-                            <button type="submit" :disabled="!form.title.trim()">
-                                +
-                            </button>
+                                        <label class="task-form-field">
+                                            <span>Дедлайн</span>
+                                            <input v-model="form.due_date" type="date" />
+                                        </label>
+
+                                        <label class="task-form-field task-form-field-full">
+                                            <span>Приоритет</span>
+                                            <select v-model.number="form.priority">
+                                                <option :value="1">Низкий</option>
+                                                <option :value="2">Средний</option>
+                                                <option :value="3">Высокий</option>
+                                            </select>
+                                        </label>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <small v-if="form.errors.title" class="field-error">
+                                {{ form.errors.title }}
+                            </small>
                         </form>
 
                     </div>
@@ -1146,14 +1190,100 @@ button:hover {
 }
 
 .task-form {
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
     display: flex;
-    gap: 6px;
-    margin-top: 10px;
+    flex-direction: column;
+    gap: 10px;
 }
 
-.task-form input {
-    flex: 1;
-    padding: 6px;
+.task-form-main {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 8px;
+    align-items: center;
+}
+
+.task-form-title {
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font: inherit;
+    background: white;
+}
+
+.task-form-toggle,
+.task-form-submit {
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.task-form-toggle {
+    background: #eef2ff;
+    color: #3730a3;
+}
+
+.task-form-submit {
+    min-width: 42px;
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.task-form-details {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 4px;
+}
+
+.task-form-details textarea,
+.task-form-details input,
+.task-form-details select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font: inherit;
+    background: white;
+}
+
+.task-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.task-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.task-form-field span {
+    font-size: 12px;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.task-form-field-full {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+    .task-form-main {
+        grid-template-columns: 1fr;
+    }
+
+    .task-form-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .drop-zone {
