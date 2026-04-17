@@ -63,15 +63,21 @@ class ProjectController extends Controller
 
         return Inertia::render('Projects/Show', [
             'project' => $project,
-            'projectMembers' => $project->members->map(function ($member) {
-                return [
-                    'id' => $member->id,
-                    'name' => $member->name,
-                    'email' => $member->email,
-                    'role' => $member->pivot->role,
-                ];
-            })->values(),
+            'projectMembers' => $project->members
+                ->sortBy(function ($member) use ($project) {
+                    return $member->id === $project->user_id ? 0 : 1;
+                })
+                ->map(function ($member) use ($project) {
+                    return [
+                        'id' => $member->id,
+                        'name' => $member->name,
+                        'email' => $member->email,
+                        'role' => $member->id === $project->user_id ? 'admin' : $member->pivot->role,
+                    ];
+                })
+                ->values(),
             'currentUserRole' => $currentUser?->pivot?->role,
+            'currentUserId' => auth()->id(),
         ]);
     }
 

@@ -8,6 +8,8 @@ const props = defineProps({
     project: Object,
     projectMembers: Array,
     currentUserRole: String,
+    currentUserId: Number,
+    canManageMembers: Boolean,
 })
 
 const searchQuery = ref('')
@@ -318,6 +320,45 @@ const canUploadFiles = computed(() =>
     ['admin', 'member'].includes(props.currentUserRole)
 )
 
+const memberForm = useForm({
+    email: '',
+    role: 'member',
+})
+
+const roleForms = ref({})
+
+const getRoleForm = (userId, currentRole) => {
+    if (!roleForms.value[userId]) {
+        roleForms.value[userId] = useForm({
+            role: currentRole,
+        })
+    }
+
+    return roleForms.value[userId]
+}
+
+const submitMember = () => {
+    memberForm.post(route('projects.members.store', props.project.id), {
+        preserveScroll: true,
+        onSuccess: () => memberForm.reset('email'),
+    })
+}
+
+const updateMemberRole = (member) => {
+    const form = getRoleForm(member.id, member.role)
+
+    form.patch(route('projects.members.update', [props.project.id, member.id]), {
+        preserveScroll: true,
+    })
+}
+
+const removeMember = (member) => {
+    if (confirm(`Удалить ${member.name} из проекта?`)) {
+        router.delete(route('projects.members.destroy', [props.project.id, member.id]), {
+            preserveScroll: true,
+        })
+    }
+}
 </script>
 
 <template>
@@ -386,6 +427,90 @@ const canUploadFiles = computed(() =>
                         ← К проектам
                     </Link>
                 </div>
+            </section>
+
+            <section class="members-panel">
+                <div class="members-panel-header">
+                    <div>
+                        <h2>Участники проекта</h2>
+                        <p>Роли и доступ пользователей внутри проекта</p>
+                    </div>
+                </div>
+
+                <div class="members-list">
+                    <div
+                        v-for="member in projectMembers"
+                        :key="member.id"
+                        class="member-card"
+                    >
+                        <div class="member-main">
+                            <div class="member-name-row">
+                                <strong>{{ member.name }}</strong>
+                                <span :class="['member-role-badge', `role-${member.role}`]">
+                        {{ member.role }}
+                    </span>
+                            </div>
+
+                            <div class="member-email">
+                                {{ member.email }}
+                            </div>
+                        </div>
+
+                        <div
+                            v-if="canManageMembers && member.id !== currentUserId"
+                            class="member-actions"
+                        >
+                            <select
+                                v-model="getRoleForm(member.id, member.role).role"
+                                @change="updateMemberRole(member)"
+                            >
+                                <option value="member">member</option>
+                                <option value="viewer">viewer</option>
+                            </select>
+
+                            <button type="button" class="danger-btn" @click="removeMember(member)">
+                                Удалить
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <form
+                    v-if="canManageMembers"
+                    class="member-invite-form"
+                    @submit.prevent="submitMember"
+                >
+                    <div class="invite-grid">
+                        <div class="invite-field">
+                            <label>Email пользователя</label>
+                            <input
+                                v-model="memberForm.email"
+                                type="email"
+                                placeholder="user@example.com"
+                            />
+                            <small v-if="memberForm.errors.email" class="field-error">
+                                {{ memberForm.errors.email }}
+                            </small>
+                        </div>
+
+                        <div class="invite-field">
+                            <label>Роль</label>
+                            <select v-model="memberForm.role">
+                                <option value="member">member</option>
+                                <option value="viewer">viewer</option>
+                            </select>
+                            <small v-if="memberForm.errors.role" class="field-error">
+                                {{ memberForm.errors.role }}
+                            </small>
+                        </div>
+
+                        <div class="invite-actions">
+                            <button type="submit" :disabled="memberForm.processing">
+                                Добавить участника
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </section>
 
             <section class="board-toolbar">
@@ -748,7 +873,7 @@ const canUploadFiles = computed(() =>
                         <button class="drawer-close" @click="closeTaskDrawer">✕</button>
                     </div>
 
-                    <form v-if="selectedTask" class="drawer-body" @submit.prevent="saveTaskDetails">
+                    <div v-if="selectedTask" class="drawer-body">
                         <label class="drawer-field">
                             <span>Название</span>
                             <input v-model="drawerForm.title" type="text" :disabled="!isAdmin" />
@@ -852,7 +977,7 @@ const canUploadFiles = computed(() =>
                                     </div>
 
                                     <button
-                                        v-if="isAdmin || comment.user_id === project.current_user_id"
+                                        v-if="isAdmin || comment.user_id === currentUserId"
                                         class="comment-delete"
                                         @click="deleteComment(comment.id)"
                                     >
@@ -902,7 +1027,10 @@ const canUploadFiles = computed(() =>
                                         </div>
                                     </div>
 
-                                    <button @click="deleteAttachment(attachment.id)">
+                                    <button
+                                        v-if="isAdmin || attachment.user_id === currentUserId"
+                                        @click="deleteAttachment(attachment.id)"
+                                    >
                                         Удалить
                                     </button>
                                 </div>
@@ -916,8 +1044,9 @@ const canUploadFiles = computed(() =>
                         <div class="drawer-footer">
                             <button
                                 v-if="canEditTaskDescription || canEditTaskMeta || canMoveTasks"
-                                type="submit"
+                                type="button"
                                 :disabled="drawerForm.processing"
+                                @click="saveTaskDetails"
                             >
                                 Сохранить
                             </button>
@@ -931,7 +1060,7 @@ const canUploadFiles = computed(() =>
                                 Удалить задачу
                             </button>
                         </div>
-                    </form>
+                    </div>
                 </aside>
 
             </div>
@@ -1557,5 +1686,155 @@ button:disabled {
     display: inline-flex;
     align-items: center;
     gap: 4px;
+}
+.members-panel {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.members-panel-header h2 {
+    margin: 0;
+    font-size: 20px;
+}
+
+.members-panel-header p {
+    margin: 6px 0 0 0;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.member-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: #f9fafb;
+}
+
+.member-main {
+    min-width: 0;
+}
+
+.member-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.member-email {
+    margin-top: 4px;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.member-role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.role-admin {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.role-member {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.role-viewer {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.member-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.member-actions select {
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: white;
+}
+
+.member-invite-form {
+    padding-top: 8px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.invite-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr auto;
+    gap: 14px;
+    align-items: end;
+}
+
+.invite-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.invite-field label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4b5563;
+}
+
+.invite-field input,
+.invite-field select {
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font: inherit;
+    background: white;
+}
+
+.invite-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+@media (max-width: 800px) {
+    .member-card {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .member-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .invite-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .invite-actions {
+        justify-content: flex-start;
+    }
 }
 </style>

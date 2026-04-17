@@ -8,6 +8,7 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TaskCommentController;
 use App\Http\Controllers\TaskAttachmentController;
+use App\Http\Controllers\ProjectMemberController;
 use App\Models\Project;
 use App\Models\Task;
 
@@ -115,6 +116,17 @@ Route::middleware('auth')->group(function () {
 
     Route::delete('/attachments/{id}', [TaskAttachmentController::class, 'destroy'])
         ->name('attachments.destroy');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::post('/projects/{project}/members', [ProjectMemberController::class, 'store'])
+        ->name('projects.members.store');
+
+    Route::patch('/projects/{project}/members/{user}', [ProjectMemberController::class, 'update'])
+        ->name('projects.members.update');
+
+    Route::delete('/projects/{project}/members/{user}', [ProjectMemberController::class, 'destroy'])
+        ->name('projects.members.destroy');
 });
 
 
