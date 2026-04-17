@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Task;
 use App\Models\TaskComment;
 use Illuminate\Http\Request;
+use App\Notifications\TaskCommentedNotification;
 
 class TaskCommentController extends Controller
 {
@@ -22,6 +23,14 @@ class TaskCommentController extends Controller
             'user_id' => auth()->id(),
             'body' => $validated['body'],
         ]);
+
+        $task->loadMissing('user');
+
+        if ($task->user_id && $task->user_id !== auth()->id() && $task->user) {
+            $task->user->notify(
+                new TaskCommentedNotification($task, auth()->user()->name)
+            );
+        }
 
         return back();
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Http\Request;
+use App\Notifications\AddedToProjectNotification;
 
 class ProjectMemberController extends Controller
 {
@@ -38,6 +39,8 @@ class ProjectMemberController extends Controller
         $project->members()->attach($user->id, [
             'role' => $validated['role'],
         ]);
+
+        $user->notify(new AddedToProjectNotification($project, $validated['role']));
 
         return back();
     }

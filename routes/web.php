@@ -77,6 +77,8 @@ Route::get('/dashboard', function () {
         'recentProjects' => $recentProjects,
         'recentTasks' => $recentTasks,
     ]);
+
+
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {

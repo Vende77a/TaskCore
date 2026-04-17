@@ -6,6 +6,8 @@ use App\Models\Task;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\User;
+use App\Notifications\TaskAssignedNotification;
 
 class TaskController extends Controller
 {
@@ -53,9 +55,18 @@ class TaskController extends Controller
             $data['user_id'] = $adminValidated['user_id'] ?? null;
         }
 
-        Task::create($data);
+        $task = Task::create($data);
+
+        if (!empty($task->user_id)) {
+            $assignee = User::find($task->user_id);
+
+            if ($assignee) {
+                $assignee->notify(new TaskAssignedNotification($task));
+            }
+        }
 
         return back();
+
     }
 
     public function update(Request $request, $id)
@@ -90,7 +101,16 @@ class TaskController extends Controller
                 }
             }
 
+            $oldUserId = $task->user_id;
             $task->update($validated);
+
+            if (!empty($validated['user_id']) && (int)$validated['user_id'] !== (int)$oldUserId) {
+                $assignee = User::find($validated['user_id']);
+
+                if ($assignee) {
+                    $assignee->notify(new TaskAssignedNotification($task->fresh()));
+                }
+            }
 
             return back();
         }
