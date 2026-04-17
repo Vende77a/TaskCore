@@ -9,23 +9,20 @@ use Illuminate\Support\Facades\Storage;
 
 class TaskAttachmentController extends Controller
 {
-    public function store(Request $request, $taskId)
+    public function store(Request $request, Task $task)
     {
-        $task = Task::where('id', $taskId)
-            ->whereHas('project', function ($query) {
-                $query->where('user_id', auth()->id());
-            })
-            ->firstOrFail();
+        $task->load('project.members');
+
+        abort_unless($task->project->canAttachFiles(auth()->user()), 403);
 
         $validated = $request->validate([
-            'file' => 'required|file|mimes:jpg,jpeg,png,pdf,doc,docx,txt,zip|max:10240',
+            'file' => 'required|file|max:10240',
         ]);
 
         $file = $validated['file'];
-        $path = $file->store('task-attachments', 'public');
+        $path = $file->store('attachments', 'public');
 
-        TaskAttachment::create([
-            'task_id' => $task->id,
+        $task->attachments()->create([
             'user_id' => auth()->id(),
             'original_name' => $file->getClientOriginalName(),
             'path' => $path,
@@ -33,20 +30,25 @@ class TaskAttachmentController extends Controller
             'size' => $file->getSize(),
         ]);
 
-        return redirect()->back();
+        return back();
     }
 
-    public function destroy($id)
+    public function destroy(TaskAttachment $attachment)
     {
-        $attachment = TaskAttachment::where('id', $id)
-            ->whereHas('task.project', function ($query) {
-                $query->where('user_id', auth()->id());
-            })
-            ->firstOrFail();
+        $attachment->load('task.project.members');
 
-        Storage::disk('public')->delete($attachment->path);
+        $project = $attachment->task->project;
+        $user = auth()->user();
+
+        $canDelete =
+            $project->isAdmin($user) ||
+            $attachment->user_id === $user->id;
+
+        abort_unless($canDelete, 403);
+
+        \Storage::disk('public')->delete($attachment->path);
         $attachment->delete();
 
-        return redirect()->back();
+        return back();
     }
 }

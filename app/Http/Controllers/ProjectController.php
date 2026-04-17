@@ -5,17 +5,18 @@ namespace App\Http\Controllers;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class ProjectController extends Controller
 {
-
     public function index()
     {
-        $projects = auth()->user()
-            ->projects()
-            ->withCount('tasks')
+        $userId = auth()->id();
+
+        $projects = Project::whereHas('members', function ($query) use ($userId) {
+            $query->where('users.id', $userId);
+        })
+            ->with('user:id,name,email')
             ->latest()
             ->get();
 
@@ -24,16 +25,21 @@ class ProjectController extends Controller
         ]);
     }
 
-    public function store(Request $request){
+    public function store(Request $request)
+    {
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
         ]);
 
-        Project::create([
+        $project = Project::create([
             'user_id' => auth()->id(),
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
+        ]);
+
+        $project->members()->attach(auth()->id(), [
+            'role' => 'admin',
         ]);
 
         return redirect()->route('projects.index');
@@ -42,23 +48,30 @@ class ProjectController extends Controller
     public function show($id)
     {
         $project = Project::where('id', $id)
-            ->where('user_id', auth()->id())
+            ->whereHas('members', function ($query) {
+                $query->where('users.id', auth()->id());
+            })
             ->with([
+                'members:id,name,email',
                 'tasks' => function ($query) {
-                    $query->with([
-                        'user',
-                        'comments.user',
-                        'attachments.user',
-                    ])->orderBy('order', 'asc');
+                    $query->with('user')->orderBy('order', 'asc');
                 }
             ])
             ->firstOrFail();
 
+        $currentUser = $project->members->firstWhere('id', auth()->id());
+
         return Inertia::render('Projects/Show', [
             'project' => $project,
-            'users' => User::select('id', 'name', 'email')
-                ->orderBy('name')
-                ->get(),
+            'projectMembers' => $project->members->map(function ($member) {
+                return [
+                    'id' => $member->id,
+                    'name' => $member->name,
+                    'email' => $member->email,
+                    'role' => $member->pivot->role,
+                ];
+            })->values(),
+            'currentUserRole' => $currentUser?->pivot?->role,
         ]);
     }
 
@@ -72,5 +85,4 @@ class ProjectController extends Controller
 
         return redirect()->route('projects.index');
     }
-
 }

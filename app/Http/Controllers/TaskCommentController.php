@@ -8,37 +8,39 @@ use Illuminate\Http\Request;
 
 class TaskCommentController extends Controller
 {
-    public function store(Request $request, $taskId)
+    public function store(Request $request, Task $task)
     {
-        $task = Task::where('id', $taskId)
-            ->whereHas('project', function ($query) {
-                $query->where('user_id', auth()->id());
-            })
-            ->firstOrFail();
+        $task->load('project.members');
+
+        abort_unless($task->project->canCommentTask(auth()->user()), 403);
 
         $validated = $request->validate([
-            'body' => 'required|string|max:2000',
+            'body' => 'required|string',
         ]);
 
-        TaskComment::create([
-            'task_id' => $task->id,
+        $task->comments()->create([
             'user_id' => auth()->id(),
             'body' => $validated['body'],
         ]);
 
-        return redirect()->back();
+        return back();
     }
 
-    public function destroy($id)
+    public function destroy(TaskComment $comment)
     {
-        $comment = TaskComment::where('id', $id)
-            ->whereHas('task.project', function ($query) {
-                $query->where('user_id', auth()->id());
-            })
-            ->firstOrFail();
+        $comment->load('task.project.members');
+
+        $project = $comment->task->project;
+        $user = auth()->user();
+
+        $canDelete =
+            $project->isAdmin($user) ||
+            $comment->user_id === $user->id;
+
+        abort_unless($canDelete, 403);
 
         $comment->delete();
 
-        return redirect()->back();
+        return back();
     }
 }

@@ -6,7 +6,8 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue'
 
 const props = defineProps({
     project: Object,
-    users: Array,
+    projectMembers: Array,
+    currentUserRole: String,
 })
 
 const searchQuery = ref('')
@@ -101,13 +102,19 @@ watch(
 
 const form = useForm({
     title: '',
+    description: '',
     project_id: props.project.id,
     priority: 1,
+    due_date: '',
+    user_id: '',
 })
+
+const isAdmin = computed(() => props.currentUserRole === 'admin')
+const canCreateTask = computed(() => ['admin', 'member'].includes(props.currentUserRole))
 
 const submit = () => {
     form.post(route('tasks.store'), {
-        onSuccess: () => form.reset('title')
+        onSuccess: () => form.reset()
     })
 }
 
@@ -176,9 +183,9 @@ const selectedTask = computed(() => {
     return allTasks.find(task => task.id === selectedTaskId.value) ?? null
 })
 
-const formatForDateTimeInput = (value) => {
+const formatForDateInput = (value) => {
     if (!value) return ''
-    return value.slice(0, 16)
+    return value.slice(0, 10)
 }
 
 const formatDateTime = (value) => {
@@ -202,7 +209,7 @@ const fillDrawerForm = (task) => {
     drawerForm.description = task.description ?? ''
     drawerForm.status = task.status ?? 'backlog'
     drawerForm.priority = task.priority ?? 1
-    drawerForm.due_date = formatForDateTimeInput(task.due_date)
+    drawerForm.due_date = formatForDateInput(task.due_date)
     drawerForm.user_id = task.user_id ?? ''
 }
 
@@ -287,6 +294,30 @@ const formatFileSize = (bytes) => {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`
     return `${(bytes / (1024 * 1024)).toFixed(1)} МБ`
 }
+
+const isMember = computed(() => props.currentUserRole === 'member')
+const isViewer = computed(() => props.currentUserRole === 'viewer')
+
+const canMoveTasks = computed(() =>
+    ['admin', 'member'].includes(props.currentUserRole)
+)
+
+const canEditTaskDescription = computed(() =>
+    ['admin', 'member'].includes(props.currentUserRole)
+)
+
+const canEditTaskMeta = computed(() => isAdmin.value)
+
+const canDeleteTask = computed(() => isAdmin.value)
+
+const canComment = computed(() =>
+    ['admin', 'member'].includes(props.currentUserRole)
+)
+
+const canUploadFiles = computed(() =>
+    ['admin', 'member'].includes(props.currentUserRole)
+)
+
 </script>
 
 <template>
@@ -382,7 +413,7 @@ const formatFileSize = (bytes) => {
                     <select v-model="selectedUserId">
                         <option value="">Все</option>
                         <option
-                            v-for="user in users"
+                            v-for="user in projectMembers"
                             :key="user.id"
                             :value="user.id"
                         >
@@ -425,7 +456,7 @@ const formatFileSize = (bytes) => {
                             item-key="id"
                             @end="onEnd"
                             class="drop-zone"
-                            :disabled="hasActiveFilters"
+                            :disabled="hasActiveFilters || !canMoveTasks"
                         >
                             <template #item="{ element: task }">
                                 <div class="task" @click="openTaskDrawer(task)">
@@ -462,7 +493,7 @@ const formatFileSize = (bytes) => {
                                         </span>
                                     </div>
 
-                                    <div class="task-actions">
+                                    <div v-if="canDeleteTask" class="task-actions">
                                         <button @click.stop="deleteTask(task.id)">Удалить</button>
                                     </div>
                                 </div>
@@ -476,12 +507,39 @@ const formatFileSize = (bytes) => {
 
                         </draggable>
 
-                        <form @submit.prevent="submit" class="task-form">
+                        <form v-if="canCreateTask" @submit.prevent="submit" class="task-form">
                             <input
                                 v-model="form.title"
                                 type="text"
-                                placeholder="New task..."
+                                placeholder="Новая задача..."
                             />
+
+                            <textarea
+                                v-model="form.description"
+                                placeholder="Описание задачи"
+                            ></textarea>
+
+                            <template v-if="isAdmin">
+                                <select v-model="form.user_id">
+                                    <option value="">Не назначен</option>
+                                    <option
+                                        v-for="user in projectMembers"
+                                        :key="user.id"
+                                        :value="user.id"
+                                    >
+                                        {{ user.name }}
+                                    </option>
+                                </select>
+
+                                <input v-model="form.due_date" type="date" />
+
+                                <select v-model.number="form.priority">
+                                    <option :value="1">Низкий</option>
+                                    <option :value="2">Средний</option>
+                                    <option :value="3">Высокий</option>
+                                </select>
+                            </template>
+
                             <button type="submit" :disabled="!form.title.trim()">
                                 +
                             </button>
@@ -499,7 +557,7 @@ const formatFileSize = (bytes) => {
                             item-key="id"
                             @end="onEnd"
                             class="drop-zone"
-                            :disabled="hasActiveFilters"
+                            :disabled="hasActiveFilters || !canMoveTasks"
                         >
                             <template #item="{ element: task }">
                                 <div class="task" @click="openTaskDrawer(task)">
@@ -536,7 +594,7 @@ const formatFileSize = (bytes) => {
                                         </span>
                                     </div>
 
-                                    <div class="task-actions">
+                                    <div v-if="canDeleteTask" class="task-actions">
                                         <button @click.stop="deleteTask(task.id)">Удалить</button>
                                     </div>
                                 </div>
@@ -561,7 +619,7 @@ const formatFileSize = (bytes) => {
                             item-key="id"
                             @end="onEnd"
                             class="drop-zone"
-                            :disabled="hasActiveFilters"
+                            :disabled="hasActiveFilters || !canMoveTasks"
                         >
                             <template #item="{ element: task }">
                                 <div class="task" @click="openTaskDrawer(task)">
@@ -598,7 +656,7 @@ const formatFileSize = (bytes) => {
                                         </span>
                                     </div>
 
-                                    <div class="task-actions">
+                                    <div v-if="canDeleteTask" class="task-actions">
                                         <button @click.stop="deleteTask(task.id)">Удалить</button>
                                     </div>
                                 </div>
@@ -624,7 +682,7 @@ const formatFileSize = (bytes) => {
                             item-key="id"
                             @end="onEnd"
                             class="drop-zone"
-                            :disabled="hasActiveFilters"
+                            :disabled="hasActiveFilters || !canMoveTasks"
                         >
                             <template #item="{ element: task }">
                                 <div class="task" @click="openTaskDrawer(task)">
@@ -661,7 +719,7 @@ const formatFileSize = (bytes) => {
                                         </span>
                                     </div>
 
-                                    <div class="task-actions">
+                                    <div v-if="canDeleteTask" class="task-actions">
                                         <button @click.stop="deleteTask(task.id)">Удалить</button>
                                     </div>
                                 </div>
@@ -693,7 +751,7 @@ const formatFileSize = (bytes) => {
                     <form v-if="selectedTask" class="drawer-body" @submit.prevent="saveTaskDetails">
                         <label class="drawer-field">
                             <span>Название</span>
-                            <input v-model="drawerForm.title" type="text" />
+                            <input v-model="drawerForm.title" type="text" :disabled="!isAdmin" />
                             <small v-if="drawerForm.errors.title" class="field-error">
                                 {{ drawerForm.errors.title }}
                             </small>
@@ -701,7 +759,11 @@ const formatFileSize = (bytes) => {
 
                         <label class="drawer-field">
                             <span>Описание</span>
-                            <textarea v-model="drawerForm.description" rows="5"></textarea>
+                            <textarea
+                                v-model="drawerForm.description"
+                                rows="5"
+                                :disabled="!canEditTaskDescription"
+                            ></textarea>
                             <small v-if="drawerForm.errors.description" class="field-error">
                                 {{ drawerForm.errors.description }}
                             </small>
@@ -710,7 +772,7 @@ const formatFileSize = (bytes) => {
                         <div class="drawer-grid">
                             <label class="drawer-field">
                                 <span>Статус</span>
-                                <select v-model="drawerForm.status">
+                                <select v-model="drawerForm.status" :disabled="!canMoveTasks">
                                     <option value="backlog">Backlog</option>
                                     <option value="in_progress">In Progress</option>
                                     <option value="review">Review</option>
@@ -720,7 +782,7 @@ const formatFileSize = (bytes) => {
 
                             <label class="drawer-field">
                                 <span>Приоритет</span>
-                                <select v-model.number="drawerForm.priority">
+                                <select v-model.number="drawerForm.priority" :disabled="!canEditTaskMeta">
                                     <option :value="1">Низкий</option>
                                     <option :value="2">Средний</option>
                                     <option :value="3">Высокий</option>
@@ -729,15 +791,15 @@ const formatFileSize = (bytes) => {
 
                             <label class="drawer-field">
                                 <span>Дедлайн</span>
-                                <input v-model="drawerForm.due_date" type="datetime-local" />
+                                <input v-model="drawerForm.due_date" type="date" :disabled="!canEditTaskMeta" />
                             </label>
 
                             <label class="drawer-field">
                                 <span>Исполнитель</span>
-                                <select v-model="drawerForm.user_id">
+                                <select v-model="drawerForm.user_id" :disabled="!canEditTaskMeta">
                                     <option value="">Не назначен</option>
                                     <option
-                                        v-for="user in users"
+                                        v-for="user in projectMembers"
                                         :key="user.id"
                                         :value="user.id"
                                     >
@@ -755,7 +817,7 @@ const formatFileSize = (bytes) => {
                         <div class="drawer-section">
                             <h3>Комментарии</h3>
 
-                            <form class="comment-form" @submit.prevent="submitComment">
+                            <form v-if="canComment" class="comment-form" @submit.prevent="submitComment">
                         <textarea
                             v-model="commentForm.body"
                             rows="3"
@@ -790,6 +852,7 @@ const formatFileSize = (bytes) => {
                                     </div>
 
                                     <button
+                                        v-if="isAdmin || comment.user_id === project.current_user_id"
                                         class="comment-delete"
                                         @click="deleteComment(comment.id)"
                                     >
@@ -806,7 +869,7 @@ const formatFileSize = (bytes) => {
                         <div class="drawer-section">
                             <h3>Прикреплённые файлы</h3>
 
-                            <form class="attachment-form" @submit.prevent="submitAttachment">
+                            <form v-if="canUploadFiles" class="attachment-form" @submit.prevent="submitAttachment">
                                 <input type="file" @change="onFileChange" />
 
                                 <small v-if="attachmentForm.errors.file" class="field-error">
@@ -851,11 +914,16 @@ const formatFileSize = (bytes) => {
                         </div>
 
                         <div class="drawer-footer">
-                            <button type="submit" :disabled="drawerForm.processing">
+                            <button
+                                v-if="canEditTaskDescription || canEditTaskMeta || canMoveTasks"
+                                type="submit"
+                                :disabled="drawerForm.processing"
+                            >
                                 Сохранить
                             </button>
 
                             <button
+                                v-if="canDeleteTask"
                                 type="button"
                                 class="danger-btn"
                                 @click="deleteTask(selectedTask.id)"

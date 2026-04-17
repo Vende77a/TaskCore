@@ -12,109 +12,147 @@ class TaskController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'project_id' => 'required|exists:projects,id',
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'project_id' => 'required|exists:projects,id',
-            'priority' => 'required|integer|min:1|max:3',
         ]);
 
-        $project = Project::where('id', $validated['project_id'])
-            ->where('user_id', auth()->id())
-            ->firstOrFail();
+        $project = Project::with('members')->findOrFail($validated['project_id']);
 
-        Task::create([
+        abort_unless($project->canCreateTask(auth()->user()), 403);
+
+        $data = [
+            'project_id' => $project->id,
             'title' => $validated['title'],
             'description' => $validated['description'] ?? null,
-            'project_id' => $project->id,
             'status' => 'backlog',
-            'priority' => $validated['priority'],
-        ]);
+            'priority' => 1,
+        ];
 
-        return redirect()->route('projects.show', $project->id);
+        if ($project->isAdmin(auth()->user())) {
+            $adminValidated = $request->validate([
+                'priority' => 'nullable|integer|in:1,2,3',
+                'due_date' => 'nullable|date',
+                'user_id' => 'nullable|exists:users,id',
+            ]);
+
+            if (!empty($adminValidated['user_id'])) {
+                $isProjectMember = $project->members()
+                    ->where('users.id', $adminValidated['user_id'])
+                    ->exists();
+
+                if (!$isProjectMember) {
+                    return back()->withErrors([
+                        'user_id' => 'Исполнитель должен быть участником проекта.',
+                    ]);
+                }
+            }
+
+            $data['priority'] = $adminValidated['priority'] ?? 1;
+            $data['due_date'] = $adminValidated['due_date'] ?? null;
+            $data['user_id'] = $adminValidated['user_id'] ?? null;
+        }
+
+        Task::create($data);
+
+        return back();
     }
 
     public function update(Request $request, $id)
     {
-        $task = Task::where('id', $id)
-            ->whereHas('project', function ($query) {
-                $query->where('user_id', auth()->id());
-            })
-            ->firstOrFail();
+        $task = Task::with('project.members')
+            ->findOrFail($id);
 
-        $validated = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'description' => 'sometimes|nullable|string',
-            'status' => 'sometimes|required|in:backlog,in_progress,review,done',
-            'priority' => 'sometimes|required|integer|min:1|max:3',
-            'due_date' => 'sometimes|nullable|date',
-            'user_id' => 'sometimes|nullable|exists:users,id',
-        ]);
+        $project = $task->project;
+        $user = auth()->user();
 
-        $data = [];
+        abort_unless($project->canViewProject($user), 403);
 
-        if ($request->exists('title')) {
-            $data['title'] = $validated['title'];
+        if ($project->isAdmin($user)) {
+            $validated = $request->validate([
+                'title' => 'nullable|string|max:255',
+                'description' => 'nullable|string',
+                'status' => 'nullable|in:backlog,in_progress,review,done',
+                'priority' => 'nullable|integer|in:1,2,3',
+                'due_date' => 'nullable|date',
+                'user_id' => 'nullable|exists:users,id',
+            ]);
+
+            if (!empty($validated['user_id'])) {
+                $isProjectMember = $project->members()
+                    ->where('users.id', $validated['user_id'])
+                    ->exists();
+
+                if (!$isProjectMember) {
+                    return back()->withErrors([
+                        'user_id' => 'Исполнитель должен быть участником проекта.',
+                    ]);
+                }
+            }
+
+            $task->update($validated);
+
+            return back();
         }
 
-        if ($request->exists('description')) {
-            $data['description'] = $validated['description'] ?? null;
+        if ($project->isMember($user)) {
+            $validated = $request->validate([
+                'description' => 'nullable|string',
+                'status' => 'nullable|in:backlog,in_progress,review,done',
+            ]);
+
+            $task->update($validated);
+
+            return back();
         }
 
-        if ($request->exists('status')) {
-            $data['status'] = $validated['status'];
-        }
-
-        if ($request->exists('priority')) {
-            $data['priority'] = $validated['priority'];
-        }
-
-        if ($request->exists('due_date')) {
-            $data['due_date'] = $validated['due_date'] ?? null;
-        }
-
-        if ($request->exists('user_id')) {
-            $data['user_id'] = $validated['user_id'] ?: null;
-        }
-
-        $task->update($data);
-
-        return redirect()->back();
+        abort(403);
     }
 
     public function destroy($id)
     {
-        $task = Task::where('id', $id)
-            ->whereHas('project', function ($query) {
-                $query->where('user_id', auth()->id());
-            })
-            ->firstOrFail();
+        $task = Task::with('project.members')->findOrFail($id);
+
+        abort_unless($task->project->canDeleteTask(auth()->user()), 403);
 
         $task->delete();
 
-        return redirect()->back();
+        return back();
     }
 
     public function reorder(Request $request)
     {
         $validated = $request->validate([
             'tasks' => 'required|array',
-            'tasks.*.id' => 'required|integer|exists:tasks,id',
+            'tasks.*.id' => 'required|exists:tasks,id',
             'tasks.*.order' => 'required|integer|min:0',
             'tasks.*.status' => 'required|in:backlog,in_progress,review,done',
         ]);
 
-        DB::transaction(function () use ($validated) {
-            foreach ($validated['tasks'] as $taskData) {
-                Task::where('id', $taskData['id'])
-                    ->whereHas('project', function ($query) {
-                        $query->where('user_id', auth()->id());
-                    })
-                    ->update([
-                        'order' => $taskData['order'],
-                        'status' => $taskData['status'],
-                    ]);
+        $taskIds = collect($validated['tasks'])->pluck('id');
+
+        $tasks = Task::with('project.members')
+            ->whereIn('id', $taskIds)
+            ->get();
+
+        if ($tasks->isEmpty()) {
+            return back();
+        }
+
+        $project = $tasks->first()->project;
+
+        abort_unless($project->canMoveTask(auth()->user()), 403);
+
+        foreach ($validated['tasks'] as $item) {
+            $task = $tasks->firstWhere('id', $item['id']);
+
+            if ($task) {
+                $task->update([
+                    'order' => $item['order'],
+                    'status' => $item['status'],
+                ]);
             }
-        });
+        }
 
         return back();
     }
