@@ -670,11 +670,12 @@ const removeMember = (member) => {
                             </div>
 
                             <div v-if="showCreateTaskDetails" class="task-form-details">
-        <textarea
-            v-model="form.description"
-            placeholder="Описание задачи"
-            rows="3"
-        ></textarea>
+
+                                <textarea
+                                    v-model="form.description"
+                                    placeholder="Описание задачи"
+                                    rows="3"
+                                ></textarea>
 
                                 <template v-if="isAdmin">
                                     <div class="task-form-grid">
@@ -917,6 +918,28 @@ const removeMember = (member) => {
                         <button class="drawer-close" @click="closeTaskDrawer">✕</button>
                     </div>
 
+                    <div v-if="selectedTask" class="drawer-summary">
+                        <span :class="['status-chip', `status-${drawerForm.status}`]">
+                            {{ statusLabel(drawerForm.status) }}
+                        </span>
+
+                        <span :class="['priority-badge', `priority-${drawerForm.priority}`]">
+                            {{ priorityLabel(drawerForm.priority) }}
+                        </span>
+
+                        <span class="summary-item">
+                            👤
+                            {{
+                                projectMembers.find(user => String(user.id) === String(drawerForm.user_id))?.name
+                                || 'Не назначен'
+                            }}
+                        </span>
+
+                        <span class="summary-item">
+                            📅 {{ drawerForm.due_date || 'Без дедлайна' }}
+                        </span>
+                    </div>
+
                     <div v-if="selectedTask" class="drawer-body">
                         <label class="drawer-field">
                             <span>Название</span>
@@ -979,19 +1002,19 @@ const removeMember = (member) => {
                         </div>
 
                         <div class="drawer-meta">
-                            <div><strong>Создана:</strong> {{ formatDateTime(selectedTask.created_at) }}</div>
-                            <div><strong>Обновлена:</strong> {{ formatDateTime(selectedTask.updated_at) }}</div>
+                            <span><strong>Создана:</strong> {{ formatDateTime(selectedTask.created_at) }}</span>
+                            <span><strong>Обновлена:</strong> {{ formatDateTime(selectedTask.updated_at) }}</span>
                         </div>
 
-                        <div class="drawer-section">
+                        <section class="drawer-card">
                             <h3>Комментарии</h3>
 
                             <form v-if="canComment" class="comment-form" @submit.prevent="submitComment">
-                        <textarea
-                            v-model="commentForm.body"
-                            rows="3"
-                            placeholder="Напиши комментарий..."
-                        ></textarea>
+                                 <textarea
+                                     v-model="commentForm.body"
+                                     rows="3"
+                                    placeholder="Напиши комментарий..."
+                                     ></textarea>
 
                                 <small v-if="commentForm.errors.body" class="field-error">
                                     {{ commentForm.errors.body }}
@@ -1033,9 +1056,9 @@ const removeMember = (member) => {
                             <div v-else class="drawer-placeholder">
                                 Пока комментариев нет.
                             </div>
-                        </div>
+                        </section>
 
-                        <div class="drawer-section">
+                        <section class="drawer-card">
                             <h3>Прикреплённые файлы</h3>
 
                             <form v-if="canUploadFiles" class="attachment-form" @submit.prevent="submitAttachment">
@@ -1083,7 +1106,7 @@ const removeMember = (member) => {
                             <div v-else class="drawer-placeholder">
                                 Пока файлов нет.
                             </div>
-                        </div>
+                        </section>
 
                         <div class="drawer-footer">
                             <button
@@ -1387,6 +1410,22 @@ button:disabled {
     padding: 0;
 }
 
+.drawer-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: white;
+}
+
+.drawer-card h3 {
+    margin: 0;
+    font-size: 15px;
+}
+
+
 .drawer-body {
     flex: 1;
     overflow-y: auto;
@@ -1394,6 +1433,7 @@ button:disabled {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    background: #f8fafc;
 }
 
 .drawer-field {
@@ -1419,18 +1459,26 @@ button:disabled {
 }
 
 .drawer-meta {
-    display: grid;
-    gap: 6px;
-    padding: 12px;
-    border-radius: 10px;
-    background: #f9fafb;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     font-size: 13px;
-    color: #4b5563;
+    color: #6b7280;
 }
 
 .drawer-section h3 {
     margin: 0 0 8px 0;
     font-size: 15px;
+}
+
+.drawer-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: white;
 }
 
 .drawer-placeholder {
@@ -1443,9 +1491,21 @@ button:disabled {
 }
 
 .drawer-footer {
+    position: sticky;
+    bottom: 0;
     display: flex;
     gap: 10px;
     margin-top: auto;
+    padding-top: 14px;
+    background: linear-gradient(to top, #f8fafc 70%, rgba(248, 250, 252, 0));
+}
+
+.drawer-field input:disabled,
+.drawer-field textarea:disabled,
+.drawer-field select:disabled {
+    background: #f9fafb;
+    color: #6b7280;
+    cursor: not-allowed;
 }
 
 .danger-btn {
@@ -1496,9 +1556,9 @@ button:disabled {
 .comment-item,
 .attachment-item {
     border: 1px solid #e5e7eb;
-    border-radius: 10px;
+    border-radius: 12px;
     padding: 12px;
-    background: #fff;
+    background: #f9fafb;
 }
 
 .comment-head {
@@ -1514,6 +1574,7 @@ button:disabled {
     white-space: pre-wrap;
     color: #111827;
     font-size: 14px;
+    line-height: 1.5;
 }
 
 .comment-delete {
@@ -1620,6 +1681,18 @@ button:disabled {
 .stat-name {
     font-size: 12px;
     color: rgba(255, 255, 255, 0.8);
+}
+
+.summary-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
 }
 
 .stat-value {
@@ -1778,14 +1851,6 @@ button:disabled {
     color: #15803d;
 }
 
-.priority-badge {
-    font-size: 11px;
-    padding: 4px 9px;
-    border-radius: 999px;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
 .priority-1 {
     background: #ecfdf5;
     color: #047857;
@@ -1805,11 +1870,6 @@ button:disabled {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-}
-
-.task-deadline.overdue {
-    color: #dc2626;
-    font-weight: 700;
 }
 
 .task-user {
