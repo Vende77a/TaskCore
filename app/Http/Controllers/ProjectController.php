@@ -17,6 +17,7 @@ class ProjectController extends Controller
             $query->where('users.id', $userId);
         })
             ->with('user:id,name,email')
+            ->withCount('tasks')
             ->latest()
             ->get();
 
@@ -54,11 +55,23 @@ class ProjectController extends Controller
             ->with([
                 'members:id,name,email',
                 'tasks' => function ($query) {
-                    $query->with([
-                        'user:id,name,email',
-                        'comments.user:id,name,email',
-                        'attachments.user:id,name,email',
-                    ])->orderBy('order', 'asc');
+                    $query
+                        ->select([
+                            'id',
+                            'project_id',
+                            'user_id',
+                            'title',
+                            'description',
+                            'status',
+                            'priority',
+                            'due_date',
+                            'order',
+                            'created_at',
+                            'updated_at',
+                        ])
+                        ->with('user:id,name,email')
+                        ->withCount(['comments', 'attachments'])
+                        ->orderBy('order', 'asc');
                 }
             ])
             ->firstOrFail();

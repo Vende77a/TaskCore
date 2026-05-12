@@ -440,6 +440,106 @@ class ProjectRolesTest extends TestCase
         ]);
     }
 
+    public function test_project_member_can_load_task_details(): void
+    {
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+
+        $project = Project::factory()->create([
+            'user_id' => $owner->id,
+        ]);
+
+        $this->addProjectMember($project, $owner, 'admin');
+        $this->addProjectMember($project, $member, 'member');
+
+        $task = Task::factory()->create([
+            'project_id' => $project->id,
+            'title' => 'Task with details',
+        ]);
+
+        $task->comments()->create([
+            'user_id' => $member->id,
+            'body' => 'Loaded lazily',
+        ]);
+
+        $response = $this->actingAs($member)->get(route('tasks.show', $task->id));
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('task.title', 'Task with details')
+            ->assertJsonPath('task.comments.0.body', 'Loaded lazily');
+    }
+
+    public function test_non_member_cannot_load_task_details(): void
+    {
+        $owner = User::factory()->create();
+        $outsider = User::factory()->create();
+
+        $project = Project::factory()->create([
+            'user_id' => $owner->id,
+        ]);
+
+        $this->addProjectMember($project, $owner, 'admin');
+
+        $task = Task::factory()->create([
+            'project_id' => $project->id,
+        ]);
+
+        $response = $this->actingAs($outsider)->get(route('tasks.show', $task->id));
+
+        $response->assertForbidden();
+    }
+
+    public function test_reorder_rejects_tasks_from_multiple_projects(): void
+    {
+        $owner = User::factory()->create();
+
+        $firstProject = Project::factory()->create([
+            'user_id' => $owner->id,
+        ]);
+        $secondProject = Project::factory()->create([
+            'user_id' => $owner->id,
+        ]);
+
+        $this->addProjectMember($firstProject, $owner, 'admin');
+        $this->addProjectMember($secondProject, $owner, 'admin');
+
+        $firstTask = Task::factory()->create([
+            'project_id' => $firstProject->id,
+            'status' => 'backlog',
+        ]);
+        $secondTask = Task::factory()->create([
+            'project_id' => $secondProject->id,
+            'status' => 'backlog',
+        ]);
+
+        $response = $this->actingAs($owner)->post(route('tasks.reorder'), [
+            'tasks' => [
+                [
+                    'id' => $firstTask->id,
+                    'order' => 0,
+                    'status' => 'done',
+                ],
+                [
+                    'id' => $secondTask->id,
+                    'order' => 1,
+                    'status' => 'done',
+                ],
+            ],
+        ]);
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas('tasks', [
+            'id' => $firstTask->id,
+            'status' => 'backlog',
+        ]);
+        $this->assertDatabaseHas('tasks', [
+            'id' => $secondTask->id,
+            'status' => 'backlog',
+        ]);
+    }
+
     public function test_admin_can_change_member_role(): void
     {
         $owner = User::factory()->create();

@@ -11,6 +11,72 @@ use App\Notifications\TaskAssignedNotification;
 
 class TaskController extends Controller
 {
+    public function show(Task $task)
+    {
+        $task->load([
+            'project.members',
+            'user:id,name,email',
+        ]);
+
+        abort_unless($task->project->canViewProject(auth()->user()), 403);
+
+        $task->load([
+            'comments.user:id,name,email',
+            'attachments.user:id,name,email',
+        ]);
+
+        return response()->json([
+            'task' => [
+                'id' => $task->id,
+                'project_id' => $task->project_id,
+                'user_id' => $task->user_id,
+                'title' => $task->title,
+                'description' => $task->description,
+                'status' => $task->status,
+                'priority' => $task->priority,
+                'due_date' => $task->due_date,
+                'order' => $task->order,
+                'created_at' => $task->created_at,
+                'updated_at' => $task->updated_at,
+                'user' => $task->user ? [
+                    'id' => $task->user->id,
+                    'name' => $task->user->name,
+                    'email' => $task->user->email,
+                ] : null,
+                'comments' => $task->comments->map(fn ($comment) => [
+                    'id' => $comment->id,
+                    'task_id' => $comment->task_id,
+                    'user_id' => $comment->user_id,
+                    'body' => $comment->body,
+                    'created_at' => $comment->created_at,
+                    'updated_at' => $comment->updated_at,
+                    'user' => $comment->user ? [
+                        'id' => $comment->user->id,
+                        'name' => $comment->user->name,
+                        'email' => $comment->user->email,
+                    ] : null,
+                ])->values(),
+                'attachments' => $task->attachments->map(fn ($attachment) => [
+                    'id' => $attachment->id,
+                    'task_id' => $attachment->task_id,
+                    'user_id' => $attachment->user_id,
+                    'original_name' => $attachment->original_name,
+                    'path' => $attachment->path,
+                    'mime_type' => $attachment->mime_type,
+                    'size' => $attachment->size,
+                    'url' => $attachment->url,
+                    'created_at' => $attachment->created_at,
+                    'updated_at' => $attachment->updated_at,
+                    'user' => $attachment->user ? [
+                        'id' => $attachment->user->id,
+                        'name' => $attachment->user->name,
+                        'email' => $attachment->user->email,
+                    ] : null,
+                ])->values(),
+            ],
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -149,7 +215,7 @@ class TaskController extends Controller
             'tasks.*.status' => 'required|in:backlog,in_progress,review,done',
         ]);
 
-        $taskIds = collect($validated['tasks'])->pluck('id');
+        $taskIds = collect($validated['tasks'])->pluck('id')->unique();
 
         $tasks = Task::with('project.members')
             ->whereIn('id', $taskIds)
@@ -159,20 +225,24 @@ class TaskController extends Controller
             return back();
         }
 
+        abort_unless($tasks->pluck('project_id')->unique()->count() === 1, 403);
+
         $project = $tasks->first()->project;
 
         abort_unless($project->canMoveTask(auth()->user()), 403);
 
-        foreach ($validated['tasks'] as $item) {
-            $task = $tasks->firstWhere('id', $item['id']);
+        DB::transaction(function () use ($tasks, $validated) {
+            foreach ($validated['tasks'] as $item) {
+                $task = $tasks->firstWhere('id', $item['id']);
 
-            if ($task) {
-                $task->update([
-                    'order' => $item['order'],
-                    'status' => $item['status'],
-                ]);
+                if ($task) {
+                    $task->update([
+                        'order' => $item['order'],
+                        'status' => $item['status'],
+                    ]);
+                }
             }
-        }
+        });
 
         return back();
     }

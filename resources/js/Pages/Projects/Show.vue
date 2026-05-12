@@ -172,6 +172,9 @@ const onEnd = () => {
 /* drawer */
 const isDrawerOpen = ref(false)
 const selectedTaskId = ref(null)
+const taskDetails = ref({})
+const taskDetailsLoading = ref(false)
+const taskDetailsError = ref('')
 
 const drawerForm = useForm({
     title: '',
@@ -191,9 +194,22 @@ const hasActiveFilters = computed(() => {
     )
 })
 
-const selectedTask = computed(() => {
+const baseSelectedTask = computed(() => {
     const allTasks = Object.values(columns.value).flat()
     return allTasks.find(task => task.id === selectedTaskId.value) ?? null
+})
+
+const selectedTask = computed(() => {
+    if (!baseSelectedTask.value) return null
+
+    const details = taskDetails.value[selectedTaskId.value] ?? {}
+
+    return {
+        ...details,
+        ...baseSelectedTask.value,
+        comments: details.comments,
+        attachments: details.attachments,
+    }
 })
 
 const formatForDateInput = (value) => {
@@ -226,25 +242,70 @@ const fillDrawerForm = (task) => {
     drawerForm.user_id = task.user_id ?? ''
 }
 
+const fetchTaskDetails = async (taskId, force = false) => {
+    if (!taskId || (!force && taskDetails.value[taskId])) return
+
+    taskDetailsLoading.value = true
+    taskDetailsError.value = ''
+
+    try {
+        const response = await fetch(route('tasks.show', taskId), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json',
+            },
+            credentials: 'same-origin',
+        })
+
+        if (!response.ok) {
+            throw new Error('Cannot load task details')
+        }
+
+        const data = await response.json()
+        taskDetails.value = {
+            ...taskDetails.value,
+            [taskId]: data.task,
+        }
+
+        if (selectedTaskId.value === taskId) {
+            fillDrawerForm(data.task)
+        }
+    } catch (error) {
+        if (selectedTaskId.value === taskId) {
+            taskDetailsError.value = 'Не удалось загрузить детали задачи.'
+        }
+    } finally {
+        if (selectedTaskId.value !== taskId && selectedTaskId.value !== null) return
+
+        taskDetailsLoading.value = false
+    }
+}
+
 const openTaskDrawer = (task) => {
     selectedTaskId.value = task.id
-    fillDrawerForm(task)
+    fillDrawerForm(taskDetails.value[task.id] ?? task)
     drawerForm.clearErrors()
     isDrawerOpen.value = true
+    fetchTaskDetails(task.id)
 }
 
 const closeTaskDrawer = () => {
     isDrawerOpen.value = false
     selectedTaskId.value = null
+    taskDetailsError.value = ''
+    taskDetailsLoading.value = false
     drawerForm.clearErrors()
 }
 
 const saveTaskDetails = () => {
     if (!selectedTaskId.value) return
 
-    drawerForm.patch(route('tasks.update', selectedTaskId.value), {
+    const taskId = selectedTaskId.value
+
+    drawerForm.patch(route('tasks.update', taskId), {
         preserveState: true,
         preserveScroll: true,
+        onSuccess: () => fetchTaskDetails(taskId, true),
     })
 }
 
@@ -259,10 +320,15 @@ const attachmentForm = useForm({
 const submitComment = () => {
     if (!selectedTask.value) return
 
-    commentForm.post(route('tasks.comments.store', selectedTask.value.id), {
+    const taskId = selectedTask.value.id
+
+    commentForm.post(route('tasks.comments.store', taskId), {
         preserveScroll: true,
         preserveState: true,
-        onSuccess: () => commentForm.reset(),
+        onSuccess: () => {
+            commentForm.reset()
+            fetchTaskDetails(taskId, true)
+        },
     })
 }
 
@@ -273,30 +339,39 @@ const onFileChange = (event) => {
 const submitAttachment = () => {
     if (!selectedTask.value || !attachmentForm.file) return
 
-    attachmentForm.post(route('tasks.attachments.store', selectedTask.value.id), {
+    const taskId = selectedTask.value.id
+
+    attachmentForm.post(route('tasks.attachments.store', taskId), {
         preserveScroll: true,
         preserveState: true,
         forceFormData: true,
         onSuccess: () => {
             attachmentForm.reset()
+            fetchTaskDetails(taskId, true)
         },
     })
 }
 
 const deleteComment = (commentId) => {
     if (confirm('Удалить комментарий?')) {
+        const taskId = selectedTask.value?.id
+
         router.delete(route('comments.destroy', commentId), {
             preserveScroll: true,
             preserveState: true,
+            onSuccess: () => fetchTaskDetails(taskId, true),
         })
     }
 }
 
 const deleteAttachment = (attachmentId) => {
     if (confirm('Удалить файл?')) {
+        const taskId = selectedTask.value?.id
+
         router.delete(route('attachments.destroy', attachmentId), {
             preserveScroll: true,
             preserveState: true,
+            onSuccess: () => fetchTaskDetails(taskId, true),
         })
     }
 }
@@ -412,22 +487,22 @@ const removeMember = (member) => {
                         </div>
 
                         <div class="project-stat">
-                            <span class="stat-name">Backlog</span>
+                            <span class="stat-name">Не в работе</span>
                             <span class="stat-value">{{ columns.backlog.length }}</span>
                         </div>
 
                         <div class="project-stat">
-                            <span class="stat-name">In Progress</span>
+                            <span class="stat-name">В процессе</span>
                             <span class="stat-value">{{ columns.in_progress.length }}</span>
                         </div>
 
                         <div class="project-stat">
-                            <span class="stat-name">Review</span>
+                            <span class="stat-name">На проверке</span>
                             <span class="stat-value">{{ columns.review.length }}</span>
                         </div>
 
                         <div class="project-stat">
-                            <span class="stat-name">Done</span>
+                            <span class="stat-name">Готово</span>
                             <span class="stat-value">{{ columns.done.length }}</span>
                         </div>
                     </div>
@@ -475,8 +550,8 @@ const removeMember = (member) => {
                                 v-model="getRoleForm(member.id, member.role).role"
                                 @change="updateMemberRole(member)"
                             >
-                                <option value="member">member</option>
-                                <option value="viewer">viewer</option>
+                                <option value="member">Участник</option>
+                                <option value="viewer">Наблюдатель</option>
                             </select>
 
                             <button type="button" class="danger-btn" @click="removeMember(member)">
@@ -507,8 +582,8 @@ const removeMember = (member) => {
                         <div class="invite-field">
                             <label>Роль</label>
                             <select v-model="memberForm.role">
-                                <option value="member">member</option>
-                                <option value="viewer">viewer</option>
+                                <option value="member">Участник</option>
+                                <option value="viewer">Наблюдатель</option>
                             </select>
                             <small v-if="memberForm.errors.role" class="field-error">
                                 {{ memberForm.errors.role }}
@@ -584,7 +659,7 @@ const removeMember = (member) => {
 
                     <!-- BACKLOG -->
                     <div class="column">
-                        <h2>📌 Backlog <span>{{ columns.backlog.length }}</span></h2>
+                        <h2>📌 Новые задачи <span>{{ columns.backlog.length }}</span></h2>
 
                         <draggable
                             v-model="columns.backlog"
@@ -719,7 +794,7 @@ const removeMember = (member) => {
 
                     <!-- IN PROGRESS -->
                     <div class="column">
-                        <h2>⚙️ In Progress <span>{{ columns.in_progress.length }}</span></h2>
+                        <h2>⚙️ В работе <span>{{ columns.in_progress.length }}</span></h2>
 
                         <draggable
                             v-model="columns.in_progress"
@@ -781,7 +856,7 @@ const removeMember = (member) => {
 
                     <!-- REVIEW -->
                     <div class="column">
-                        <h2>🔍 Review <span>{{ columns.review.length }}</span></h2>
+                        <h2>🔍 На проверке <span>{{ columns.review.length }}</span></h2>
 
                         <draggable
                             v-model="columns.review"
@@ -844,7 +919,7 @@ const removeMember = (member) => {
 
                     <!-- DONE -->
                     <div class="column">
-                        <h2>🏁 Done <span>{{ columns.done.length }}</span></h2>
+                        <h2>🏁 Выполненные <span>{{ columns.done.length }}</span></h2>
 
                         <draggable
                             v-model="columns.done"
@@ -1025,8 +1100,16 @@ const removeMember = (member) => {
                                 </button>
                             </form>
 
+                            <div v-if="taskDetailsLoading" class="drawer-placeholder">
+                                Загрузка комментариев...
+                            </div>
+
+                            <div v-else-if="taskDetailsError" class="drawer-placeholder">
+                                {{ taskDetailsError }}
+                            </div>
+
                             <div
-                                v-if="selectedTask.comments && selectedTask.comments.length"
+                                v-else-if="selectedTask.comments && selectedTask.comments.length"
                                 class="comments-list"
                             >
                                 <div
@@ -1073,8 +1156,16 @@ const removeMember = (member) => {
                                 </button>
                             </form>
 
+                            <div v-if="taskDetailsLoading" class="drawer-placeholder">
+                                Загрузка файлов...
+                            </div>
+
+                            <div v-else-if="taskDetailsError" class="drawer-placeholder">
+                                {{ taskDetailsError }}
+                            </div>
+
                             <div
-                                v-if="selectedTask.attachments && selectedTask.attachments.length"
+                                v-else-if="selectedTask.attachments && selectedTask.attachments.length"
                                 class="attachments-list"
                             >
                                 <div

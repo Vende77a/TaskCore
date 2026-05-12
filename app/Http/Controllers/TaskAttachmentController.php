@@ -46,7 +46,7 @@ class TaskAttachmentController extends Controller
 
         abort_unless($canDelete, 403);
 
-        \Storage::disk('public')->delete($attachment->path);
+        Storage::disk('public')->delete($attachment->path);
         $attachment->delete();
 
         return back();

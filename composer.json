@@ -48,6 +48,13 @@
         ],
         "post-create-project-cmd": [
             "@php artisan key:generate --ansi"
+        ],
+        "optimize": [
+            "@php artisan optimize",
+            "@php artisan view:cache"
+        ],
+        "optimize-clear": [
+            "@php artisan optimize:clear"
         ]
     },
     "extra": {

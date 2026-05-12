@@ -19,6 +19,9 @@ services:
       IGNITION_LOCAL_SITES_PATH: '${PWD}'
     volumes:
       - '.:/var/www/html'
+      - 'sail-vendor:/var/www/html/vendor'
+      - 'sail-node-modules:/var/www/html/node_modules'
+      - './docker/php/opcache.ini:/etc/php/8.3/cli/conf.d/99-taskcore-opcache.ini'
     networks:
       - sail
     depends_on:
@@ -64,4 +67,8 @@ networks:
 
 volumes:
   sail-mysql:
+    driver: local
+  sail-vendor:
+    driver: local
+  sail-node-modules:
     driver: local

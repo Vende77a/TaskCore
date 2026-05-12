@@ -90,6 +90,9 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/tasks/reorder', [TaskController::class, 'reorder'])->name('tasks.reorder');
+    Route::get('/tasks/{task}', [TaskController::class, 'show'])
+        ->name('tasks.show');
+
     Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications.index');
 
@@ -118,13 +121,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/tasks/{task}/comments', [TaskCommentController::class, 'store'])
         ->name('tasks.comments.store');
 
-    Route::delete('/comments/{id}', [TaskCommentController::class, 'destroy'])
+    Route::delete('/comments/{comment}', [TaskCommentController::class, 'destroy'])
         ->name('comments.destroy');
 
     Route::post('/tasks/{task}/attachments', [TaskAttachmentController::class, 'store'])
         ->name('tasks.attachments.store');
 
-    Route::delete('/attachments/{id}', [TaskAttachmentController::class, 'destroy'])
+    Route::delete('/attachments/{attachment}', [TaskAttachmentController::class, 'destroy'])
         ->name('attachments.destroy');
 });
 
